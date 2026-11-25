@@ -1,0 +1,116 @@
+/* Dibus: dark espresso theme. Tokens sampled from the design reference. */
+
+@font-face {
+  font-family: "Bebas Neue";
+  src: url("/fonts/bebas-neue-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  --bg: #100b07;
+  --bg-deep: #0a0605;
+  --surface: #140a08;
+  --cream: #edd1bc;
+  --pill: #fbdfd3;
+  --pill-dark: #36241a;
+  --cream-muted: rgba(237, 209, 188, 0.7);
+  --accent: #9d6840;
+  --lime: #9be15d;
+
+  --glass-bg: rgba(237, 209, 188, 0.07);
+  --glass-border: rgba(237, 209, 188, 0.14);
+  --glass-blur: blur(16px) saturate(140%);
+
+  --font-display: "Bebas Neue", "Arial Narrow", Impact, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --radius-card: 24px;
+  --space-page: clamp(16px, 4vw, 40px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--cream);
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(157, 104, 64, 0.18), transparent 70%),
+    var(--bg);
+  background-repeat: no-repeat;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Frosted glass surface. Solid fallback when backdrop-filter is unsupported. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 0 var(--space-page);
+  background: var(--surface);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .topbar {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--cream);
+  text-decoration: none;
+}
+
+.wordmark:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.page {
+  padding: var(--space-page);
+}
+
+.muted {
+  color: var(--cream-muted);
+}
