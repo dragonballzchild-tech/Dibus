@@ -22,18 +22,19 @@ A free-to-host, cookie-free YouTube watcher, modeled on https://michael.team/yt/
 - Fonts: Bebas Neue (display) and Inter (body), self-hosted as woff2 to keep the site tracker-free.
 - Playback: `https://www.youtube-nocookie.com/embed/<ID>` iframe.
 - Search: YouTube Data API v3, `search.list` endpoint (`part=snippet`, `type=video`, `maxResults=12`).
-- Search proxy: Cloudflare Pages Functions (`functions/api/search.js`), so the API key stays server-side. Edge caching via the Cloudflare Cache API.
-- Hosting: Cloudflare Pages (free tier). One repo, one deploy, frontend and proxy together.
+- Search proxy: a Vercel Function (`api/search.js`, standard fetch handler, shared logic in `lib/`), so the API key stays server-side. Edge caching through `Cache-Control: s-maxage` on the response (Vercel's CDN).
+- Hosting: Vercel Hobby plan (free, personal use). One GitHub repo, one deploy, frontend and function together. No build step (Framework Preset: Other).
 - Tests: Vitest for unit tests (pure functions).
 
 ## Commands
 
 ```
-Dev (frontend + function): npx wrangler pages dev .
+Dev (static pages only):   python3 -m http.server 8000
+Function testing:          on the deployed Vercel preview URL (or `npx vercel dev` if the CLI is installed)
 Unit tests:                npx vitest run
 Lint:                      npx eslint . --fix
-Deploy:                    npx wrangler pages deploy .
-Set API key secret:        npx wrangler pages secret put YOUTUBE_API_KEY
+Deploy:                    push to GitHub (Vercel deploys automatically)
+Set API key secret:        Vercel dashboard → Project → Settings → Environment Variables → YOUTUBE_API_KEY
 ```
 
 ## Project Structure
@@ -45,7 +46,7 @@ fonts/                  → Self-hosted woff2 font files (no third-party font re
 src/app.js              → Wires up UI events, URL param handling
 src/parse.js            → parseVideoId(input): extracts the 11-char ID or returns null
 src/search.js           → Calls /api/search, normalizes results
-functions/api/search.js → Cloudflare Pages Function: proxies + caches YouTube API calls
+api/search.js → Vercel Function: proxies + caches YouTube API calls
 tests/                  → Vitest unit tests
 SPEC.md                 → This document
 README.md               → Setup and deploy instructions
@@ -149,13 +150,13 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 ## Testing Strategy
 
 - **Unit (Vitest):** `parseVideoId` covers watch, youtu.be, m.youtube, Shorts, Live, embed, bare ID, invalid input, URLs with extra params (`&t=30s`, `?si=`). Search result normalization covers missing fields.
-- **Function test:** `functions/api/search.js` tested with a mocked `fetch` (success, quota-exceeded 403, empty query, upstream error).
+- **Function test:** `lib/search-core.js` (and the thin `api/search.js` handler) tested with a mocked `fetch` (success, quota-exceeded 403, empty query, upstream error).
 - **Manual checklist before deploy:** paste a link, use `?yt=`, search, play a result, test a non-embeddable video, test on a phone, test fullscreen and PiP.
 - No coverage threshold; the parser and proxy must have tests.
 
 ## Boundaries
 
-- **Always:** validate and sanitize all input (query length ≤ 100 chars, video IDs match `^[A-Za-z0-9_-]{11}$`); render API data with `textContent`; use `youtube-nocookie.com`; keep the API key only in Cloudflare secrets; run unit tests before deploy.
+- **Always:** validate and sanitize all input (query length ≤ 100 chars, video IDs match `^[A-Za-z0-9_-]{11}$`); render API data with `textContent`; use `youtube-nocookie.com`; keep the API key only in Vercel environment variables; run unit tests before deploy.
 - **Ask first:** adding any dependency or framework; adding a database or accounts; changing the hosting provider; anything that would increase API quota use (e.g. search-as-you-type).
 - **Never:** commit the API key or put it in client code; scrape YouTube HTML or use unofficial endpoints; add analytics or trackers; download or re-host video content; strip or hide YouTube branding/links in a way that violates YouTube's API Terms of Service.
 
@@ -177,7 +178,7 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 - Lighthouse (mobile): Performance ≥ 90, Accessibility ≥ 90.
 - Visual design matches the Design section below (tokens, fonts, pill buttons, frosted glass) and is checked against the reference screenshot (IMG_8041.png).
 - Total page weight before the first video load < 150 KB including fonts (no frameworks).
-- Entire stack runs on free tiers with no credit card required for Cloudflare Pages (a Google Cloud account is needed for the API key).
+- Entire stack runs on free tiers with no credit card required for Vercel Hobby (a Google Cloud account is needed for the API key).
 
 ## Out of Scope (Deferred)
 
@@ -194,10 +195,10 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 ## Decisions Log
 
 - Quota of about 100 uncached searches per day is enough (user).
-- Search: official YouTube Data API v3 through a Cloudflare Pages Function; hosting on Cloudflare Pages.
+- Search: official YouTube Data API v3 through a Vercel Function; hosting on Vercel Hobby (switched from Cloudflare Pages because the user cannot use Cloudflare).
 - Name: Dibus. UI: English only.
 - Audience: user and friends only; no rate limiter in V1.
-- Google Cloud project and API key: user needs a step-by-step guide (to be written in README.md during setup).
+- Google Cloud project and API key: user needs a step-by-step guide (to be written as `docs/GOOGLE_API_KEY.md` in T4).
 - Fonts: Bebas Neue (display) + Inter (body) approved as close enough to the reference.
 - One search bar handles both pasted links/IDs and normal queries (links and IDs are detected first; anything else is a search).
 - Branding: text-only `DIBUS` wordmark, no logo mark.
@@ -205,6 +206,8 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 - Watch view: player plus right sidebar showing the results of the last search (stacked below the player on mobile).
 - Copy link includes the search (`?yt=ID&q=...`) so friends see the same sidebar (user: "whatever is easier"; my default adopted).
 - History menu added: full list of watched videos and searches, per-item remove and clear all, stored only in the browser.
+- Vercel Hobby is free but for personal, non-commercial use and pauses the account if free limits are exceeded; fine for a site shared with friends.
+- Shared code for functions lives in `lib/`, not `api/` (every file in `api/` becomes its own Vercel function).
 
 ## Open Questions
 

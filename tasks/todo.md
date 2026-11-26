@@ -1,8 +1,13 @@
 # Dibus V1: Task List
 
 Spec: `SPEC.md` | Plan: `tasks/plan.md`
-Commands: tests `npx vitest run`, local dev `npx wrangler pages dev .`, lint `npx eslint .`, deploy `npx wrangler pages deploy .`
-No build step exists, so "Build succeeds" means the local dev server starts and the page loads without console errors.
+Commands: tests `npx vitest run`, local static preview `python3 -m http.server 8000`, lint `npx eslint .`, deploy by pushing to GitHub (Vercel deploys automatically). The server function is tested on the deployed Vercel URL.
+No build step exists, so "Build succeeds" means the page loads without console errors.
+
+## Status (updated)
+- T1 done. T3 built and unit-tested; real YouTube playback and the embed-error message still need a manual check on the live site.
+- T2 is being redone on **Vercel** (Cloudflare was not usable). Not confirmed yet: the live Vercel page and `/api/ping`.
+- Next: confirm T2/T3 on Vercel, then T4 (Google API key walkthrough).
 
 ---
 
@@ -11,7 +16,7 @@ No build step exists, so "Build succeeds" means the local dev server starts and 
 ## Task 1: Scaffold, design tokens, self-hosted fonts
 **Description:** Create the repo structure, the dark theme CSS variables from the spec, and self-hosted Bebas Neue and Inter (woff2). Page shows the `DIBUS` wordmark in the frosted top bar on the espresso background.
 **Acceptance criteria:**
-- [x] `index.html`, `style.css`, `src/app.js`, `fonts/`, `package.json` (vitest, eslint), `.gitignore` (includes `.dev.vars`, `node_modules`) exist
+- [x] `index.html`, `style.css`, `src/app.js`, `fonts/`, `package.json` (vitest, eslint), `.gitignore` (includes `.env.local`, `node_modules`) exist
 - [x] All color tokens from SPEC.md are CSS variables; no third-party font or script requests in the Network tab
 - [x] Top bar uses the frosted glass recipe with a solid fallback
 **Verification:**
@@ -21,25 +26,25 @@ No build step exists, so "Build succeeds" means the local dev server starts and 
 **Files likely touched:** `index.html`, `style.css`, `src/app.js`, `package.json`, `.gitignore`
 **Estimated scope:** Medium
 
-## Task 2: Deploy the empty skeleton to Cloudflare Pages
-**Description:** Connect the repo to Cloudflare Pages (or direct deploy with Wrangler) and publish the skeleton, so hosting and Functions are proven before features are built.
+## Task 2: Deploy the empty skeleton to Vercel
+**Description:** Connect the GitHub repo to Vercel (Framework Preset: Other, no build command) and publish the skeleton, so hosting and server functions are proven before features are built. Originally planned for Cloudflare Pages; moved to Vercel because the user cannot use Cloudflare.
 **Acceptance criteria:**
-- [ ] Site is reachable on a `*.pages.dev` URL showing the Dibus skeleton
-- [ ] A trivial `functions/api/ping.js` returns `ok` on the deployed URL (removed in T5)
+- [ ] Site is reachable on a `*.vercel.app` URL showing the Dibus skeleton
+- [ ] A trivial `api/ping.js` returns `ok` on the deployed URL (removed in T5)
 **Verification:**
 - [ ] Manual: open the live URL on a phone; `/api/ping` returns `ok`
 **Dependencies:** Task 1
-**Files likely touched:** `functions/api/ping.js`, `wrangler.toml` (if used)
+**Files likely touched:** `api/ping.js`, `.vercelignore`, `package.json`
 **Estimated scope:** Small
 
 ## Task 3: Paste a link or ID and play it (`?yt=` supported)
 **Description:** Implement `parseVideoId` and `classifyInput` (video vs search query), the nocookie player in the rounded 16:9 container, URL updating with `pushState`, loading from `?yt=` on page load, and the embed-error fallback with an "Open on YouTube" pill button.
 **Acceptance criteria:**
-- [ ] watch, `m.youtube`, `youtu.be`, Shorts, Live, embed links, and bare 11-char IDs all resolve to the right ID; invalid input returns null
-- [ ] `/?yt=<link or ID>` loads the video on page load; pasting in the bar plays it and updates the URL without reload
+- [x] watch, `m.youtube`, `youtu.be`, Shorts, Live, embed links, and bare 11-char IDs all resolve to the right ID; invalid input returns null
+- [x] `/?yt=<link or ID>` loads the video on page load; pasting in the bar plays it and updates the URL without reload
 - [ ] A video that can't be embedded shows the error message and the Open on YouTube link
 **Verification:**
-- [ ] `npx vitest run` passes (parser cases incl. extra params like `&t=30s`, `?si=`, trailing slashes, uppercase host)
+- [x] `npx vitest run` passes (parser cases incl. extra params like `&t=30s`, `?si=`, trailing slashes, uppercase host)
 - [ ] Manual: test each link type, a bad link, and a known non-embeddable video
 **Dependencies:** Task 1
 **Files likely touched:** `src/parse.js`, `tests/parse.test.js`, `src/app.js`, `index.html`, `style.css`
@@ -54,19 +59,19 @@ No build step exists, so "Build succeeds" means the local dev server starts and 
 ## Phase 2: Search and watch view
 
 ## Task 4: Create the Google API key and store it as a secret (guided)
-**Description:** Write `docs/GOOGLE_API_KEY.md` and walk the user through it: create a Google Cloud project, enable YouTube Data API v3, create an API key, restrict it to that API, then store it with `npx wrangler pages secret put YOUTUBE_API_KEY` and in a local `.dev.vars` file. Current Console steps are checked via web search when this task starts.
+**Description:** Write `docs/GOOGLE_API_KEY.md` and walk the user through it: create a Google Cloud project, enable YouTube Data API v3, create an API key, restrict it to that API, then store it in Vercel (Project Settings → Environment Variables → `YOUTUBE_API_KEY`). Current Console steps are checked via web search when this task starts.
 **Acceptance criteria:**
 - [ ] Key restricted to YouTube Data API v3 only
-- [ ] Secret set on the Cloudflare Pages project; `.dev.vars` exists locally and is git-ignored
+- [ ] Secret set on the Vercel project as an environment variable; no key file is committed (`.env*` is git-ignored)
 - [ ] The key is never pasted into chat, code, or committed files
 **Verification:**
 - [ ] Manual: `git status` shows no key; a test `curl` through the function (after T5) returns results
 **Dependencies:** Task 2
-**Files likely touched:** `docs/GOOGLE_API_KEY.md`, `.dev.vars` (not committed)
+**Files likely touched:** `docs/GOOGLE_API_KEY.md`
 **Estimated scope:** Small (mostly user actions)
 
 ## Task 5: Search proxy function with caching
-**Description:** Implement `GET /api/search?q=` as a Pages Function: validate the query (non-empty, max 100 chars), call `search.list` (`type=video`, `maxResults=12`), normalize to `{id, title, channel, thumbnail, publishedAt}`, set cache headers, and map errors (quota exceeded, upstream failure) to clear JSON errors. Includes a spike to confirm edge caching works on the deployed `*.pages.dev` URL.
+**Description:** Implement `GET /api/search?q=` as a Vercel Function: validate the query (non-empty, max 100 chars), call `search.list` (`type=video`, `maxResults=12`), normalize to `{id, title, channel, thumbnail, publishedAt}`, set `Cache-Control: s-maxage` headers, and map errors (quota exceeded, upstream failure) to clear JSON errors. Search logic lives in `lib/search-core.js` (outside `api/`, because every file in `api/` becomes its own function) and `api/search.js` is a thin handler. Includes a spike to confirm Vercel's CDN caches repeat queries on the deployed URL.
 **Acceptance criteria:**
 - [ ] Valid query returns up to 12 normalized results; empty or too-long query returns 400
 - [ ] Quota-exceeded upstream response returns a distinct error code the UI can recognize
@@ -76,7 +81,7 @@ No build step exists, so "Build succeeds" means the local dev server starts and 
 - [ ] `npx vitest run` passes (mocked fetch: success, 403 quota, 500, bad input, missing fields)
 - [ ] Manual: call the live endpoint twice and confirm the second is a cache hit; remove `ping.js`
 **Dependencies:** Tasks 2, 4
-**Files likely touched:** `functions/api/search.js`, `tests/search-fn.test.js`, `functions/api/ping.js` (delete)
+**Files likely touched:** `api/search.js`, `lib/search-core.js`, `tests/search-core.test.js`, `api/ping.js` (delete)
 **Estimated scope:** Medium
 
 ## Task 6: Search UI: results grid
