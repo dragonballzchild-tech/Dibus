@@ -16,7 +16,20 @@
   </header>
 
   <main class="page">
-    <p class="muted">Search and watch are coming soon.</p>
+    <form id="bar" class="searchbar" role="search" autocomplete="off">
+      <label class="sr-only" for="q">Paste a YouTube link or video ID</label>
+      <input id="q" name="q" type="text" placeholder="Paste a YouTube link or video ID" enterkeyhint="go" autocapitalize="off" spellcheck="false">
+      <button class="pill" type="submit">Play <span class="pill-arrow" aria-hidden="true">&rarr;</span></button>
+    </form>
+    <p id="hint" class="hint" role="status" hidden></p>
+
+    <section id="player" class="player" aria-label="Video player" hidden>
+      <div id="player-frame" class="player-frame"></div>
+      <p id="player-error" class="player-error" role="alert" hidden>This video can&rsquo;t be played here. Open it on YouTube instead.</p>
+      <div class="strip">
+        <a id="open-yt" class="pill" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open on YouTube <span class="pill-arrow" aria-hidden="true">&rarr;</span></a>
+      </div>
+    </section>
   </main>
 
   <script type="module" src="/src/app.js"></script>
