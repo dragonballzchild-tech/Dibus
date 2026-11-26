@@ -7,8 +7,7 @@
   "scripts": {
     "test": "vitest run --passWithNoTests",
     "lint": "eslint .",
-    "dev": "wrangler pages dev .",
-    "deploy": "wrangler pages deploy ."
+    "dev": "python3 -m http.server 8000"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
