@@ -5,9 +5,11 @@ Commands: tests `npx vitest run`, local static preview `python3 -m http.server 8
 No build step exists, so "Build succeeds" means the page loads without console errors.
 
 ## Status (updated)
-- T1 done. T3 built and unit-tested; real YouTube playback and the embed-error message still need a manual check on the live site.
-- T2 is being redone on **Vercel** (Cloudflare was not usable). Not confirmed yet: the live Vercel page and `/api/ping`.
-- Next: confirm T2/T3 on Vercel, then T4 (Google API key walkthrough).
+- T1 done. T2 done on **Vercel** (Cloudflare was not usable); the user confirmed the live site works.
+- T3 built and unit-tested; real YouTube playback and the embed-error message still need a manual check on the live site.
+- T4: guide written (`docs/GOOGLE_API_KEY.md`); the user still has to create the key and add it to Vercel.
+- T5: code and unit tests done (`lib/search-core.js`, `api/search.js`, temporary ping removed); live check (real results, cache hit) waits for the key.
+- Next: user does T4, we verify T5 live, then T6 (search UI).
 
 ---
 
@@ -29,10 +31,10 @@ No build step exists, so "Build succeeds" means the page loads without console e
 ## Task 2: Deploy the empty skeleton to Vercel
 **Description:** Connect the GitHub repo to Vercel (Framework Preset: Other, no build command) and publish the skeleton, so hosting and server functions are proven before features are built. Originally planned for Cloudflare Pages; moved to Vercel because the user cannot use Cloudflare.
 **Acceptance criteria:**
-- [ ] Site is reachable on a `*.vercel.app` URL showing the Dibus skeleton
-- [ ] A trivial `api/ping.js` returns `ok` on the deployed URL (removed in T5)
+- [x] Site is reachable on a `*.vercel.app` URL showing the Dibus skeleton
+- [x] A trivial `api/ping.js` returns `ok` on the deployed URL (removed in T5)
 **Verification:**
-- [ ] Manual: open the live URL on a phone; `/api/ping` returns `ok`
+- [x] Manual: open the live URL on a phone; `/api/ping` returns `ok`
 **Dependencies:** Task 1
 **Files likely touched:** `api/ping.js`, `.vercelignore`, `package.json`
 **Estimated scope:** Small
@@ -73,12 +75,12 @@ No build step exists, so "Build succeeds" means the page loads without console e
 ## Task 5: Search proxy function with caching
 **Description:** Implement `GET /api/search?q=` as a Vercel Function: validate the query (non-empty, max 100 chars), call `search.list` (`type=video`, `maxResults=12`), normalize to `{id, title, channel, thumbnail, publishedAt}`, set `Cache-Control: s-maxage` headers, and map errors (quota exceeded, upstream failure) to clear JSON errors. Search logic lives in `lib/search-core.js` (outside `api/`, because every file in `api/` becomes its own function) and `api/search.js` is a thin handler. Includes a spike to confirm Vercel's CDN caches repeat queries on the deployed URL.
 **Acceptance criteria:**
-- [ ] Valid query returns up to 12 normalized results; empty or too-long query returns 400
-- [ ] Quota-exceeded upstream response returns a distinct error code the UI can recognize
+- [x] Valid query returns up to 12 normalized results; empty or too-long query returns 400
+- [x] Quota-exceeded upstream response returns a distinct error code the UI can recognize
 - [ ] Repeat of the same query within an hour is served from cache (verified on the deployed URL), or the fallback from the plan is applied
-- [ ] Response and source contain no API key
+- [x] Response and source contain no API key
 **Verification:**
-- [ ] `npx vitest run` passes (mocked fetch: success, 403 quota, 500, bad input, missing fields)
+- [x] `npx vitest run` passes (mocked fetch: success, 403 quota, 500, bad input, missing fields)
 - [ ] Manual: call the live endpoint twice and confirm the second is a cache hit; remove `ping.js`
 **Dependencies:** Tasks 2, 4
 **Files likely touched:** `api/search.js`, `lib/search-core.js`, `tests/search-core.test.js`, `api/ping.js` (delete)

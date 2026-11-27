@@ -37,15 +37,15 @@ T1 scaffold + tokens + fonts
 
 ### Phase 1: Foundation
 - [x] T1: Scaffold, design tokens, self-hosted fonts
-- [ ] T2: Deploy the empty skeleton to Vercel (redo after the host change; confirm page and `/api/ping`)
+- [x] T2: Deploy the empty skeleton to Vercel
 - [ ] T3: Paste a link or ID and play it (`?yt=` supported). Built and unit-tested; live check pending
 
 ### Checkpoint: Foundation
 - [ ] `npx vitest run` passes; skeleton is live on a `*.vercel.app` URL; pasting a link plays a video there
 
 ### Phase 2: Search and watch view
-- [ ] T4: Create the Google API key and store it as a secret (guided)
-- [ ] T5: Search proxy function with caching
+- [ ] T4: Create the Google API key and store it as a secret (guide written; user action pending)
+- [ ] T5: Search proxy function with caching (code + tests done; live check pending the key)
 - [ ] T6: Search UI: results grid
 - [ ] T7: Watch view with right-hand results sidebar
 
