@@ -1,5 +1,6 @@
 import { classifyInput, parseVideoId } from "./parse.js";
 import { embedUrl, watchUrl, isEmbedError, EMBED_ORIGIN } from "./player.js";
+import { normalizeQuery, searchVideos, errorMessage, formatRelativeDate } from "./search.js";
 
 const form = document.querySelector("#bar");
 const input = document.querySelector("#q");
@@ -8,8 +9,11 @@ const player = document.querySelector("#player");
 const frame = document.querySelector("#player-frame");
 const openLink = document.querySelector("#open-yt");
 const playerError = document.querySelector("#player-error");
+const resultsSection = document.querySelector("#results");
+const resultsList = document.querySelector("#results-list");
 
 let currentId = null;
+let searchToken = 0; // lets us ignore a slow search that finishes after a newer one
 
 function showHint(message) {
   hint.textContent = message;
@@ -53,11 +57,75 @@ function syncFromUrl() {
   else stop();
 }
 
+function renderResults(query, results) {
+  resultsList.replaceChildren();
+  if (results.length === 0) {
+    resultsSection.hidden = true;
+    showHint(`Nothing found for “${query}”. Try different words.`);
+    return;
+  }
+  showHint("");
+  for (const item of results) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "card";
+
+    const thumb = document.createElement("img");
+    thumb.className = "card-thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.referrerPolicy = "no-referrer";
+    thumb.width = 320;
+    thumb.height = 180;
+    if (item.thumbnail) thumb.src = item.thumbnail;
+
+    const title = document.createElement("span");
+    title.className = "card-title";
+    title.textContent = item.title;
+
+    const meta = document.createElement("span");
+    meta.className = "card-meta";
+    meta.textContent = [item.channel, formatRelativeDate(item.publishedAt)].filter(Boolean).join(" · ");
+
+    const body = document.createElement("span");
+    body.className = "card-body";
+    body.append(title, meta);
+    card.append(thumb, body);
+
+    card.addEventListener("click", () => {
+      play(item.id);
+      player.scrollIntoView({ block: "start" });
+    });
+
+    const li = document.createElement("li");
+    li.append(card);
+    resultsList.append(li);
+  }
+  resultsSection.hidden = false;
+}
+
+async function runSearch(rawQuery) {
+  const query = normalizeQuery(rawQuery);
+  const token = ++searchToken;
+  resultsSection.hidden = true;
+  showHint("Searching…");
+  try {
+    const results = await searchVideos(query);
+    if (token === searchToken) renderResults(query, results);
+  } catch (error) {
+    if (token === searchToken) showHint(errorMessage(error.code));
+  }
+}
+
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   const result = classifyInput(input.value);
-  if (result.type === "video") play(result.id);
-  else if (result.type === "search") showHint("Search is coming soon. For now, paste a YouTube link or video ID.");
+  if (result.type === "video") {
+    searchToken++; // cancel any search still in flight
+    play(result.id);
+  } else if (result.type === "search") {
+    runSearch(result.query);
+  }
 });
 
 window.addEventListener("popstate", syncFromUrl);
