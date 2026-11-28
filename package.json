@@ -1,18 +1,14 @@
 {
   "name": "dibus",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Dibus: a cookie-free YouTube watcher",
   "scripts": {
-    "test": "vitest run --passWithNoTests",
-    "lint": "eslint .",
-    "dev": "python3 -m http.server 8000"
+    "test": "vitest run",
+    "lint": "eslint . --fix"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "eslint": "^10.15.0",
-    "globals": "^17.14.0",
-    "vitest": "^5.1.1"
+    "eslint": "^9.15.0",
+    "vitest": "^2.1.5"
   }
 }

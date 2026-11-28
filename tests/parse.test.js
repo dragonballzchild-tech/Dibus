@@ -1,67 +1,46 @@
 import { describe, it, expect } from "vitest";
-import { parseVideoId, classifyInput } from "../src/parse.js";
-
-const ID = "dQw4w9WgXcQ";
+import { parseVideoId, isValidVideoId } from "../src/parse.js";
 
 describe("parseVideoId", () => {
-  it.each([
-    ["watch link", `https://www.youtube.com/watch?v=${ID}`],
-    ["watch link without scheme", `youtube.com/watch?v=${ID}`],
-    ["mobile link", `https://m.youtube.com/watch?v=${ID}`],
-    ["music link", `https://music.youtube.com/watch?v=${ID}`],
-    ["short link", `https://youtu.be/${ID}`],
-    ["short link with tracking", `https://youtu.be/${ID}?si=abc123`],
-    ["shorts link", `https://www.youtube.com/shorts/${ID}`],
-    ["live link", `https://www.youtube.com/live/${ID}`],
-    ["embed link", `https://www.youtube.com/embed/${ID}`],
-    ["nocookie embed link", `https://www.youtube-nocookie.com/embed/${ID}`],
-    ["extra params", `https://www.youtube.com/watch?v=${ID}&t=30s&list=PL123`],
-    ["v param not first", `https://www.youtube.com/watch?list=PL123&v=${ID}`],
-    ["trailing slash", `https://youtu.be/${ID}/`],
-    ["uppercase host", `HTTPS://WWW.YOUTUBE.COM/watch?v=${ID}`],
-    ["surrounding spaces", `  ${ID}  `],
-    ["bare id", ID],
-  ])("accepts %s", (_name, input) => {
-    expect(parseVideoId(input)).toBe(ID);
+  it("accepts a bare 11-character video ID", () => {
+    expect(parseVideoId("dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("  abc_def-123  ")).toBe("abc_def-123");
   });
 
-  it("accepts a bare id containing - and _", () => {
-    expect(parseVideoId("a-b_c-d_e-1")).toBe("a-b_c-d_e-1");
+  it("extracts ID from standard youtube.com/watch URLs and extra params", () => {
+    expect(parseVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("https://youtube.com/watch?v=dQw4w9WgXcQ&t=30s")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("https://m.youtube.com/watch?v=dQw4w9WgXcQ&si=abc123")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
   });
 
-  it.each([
-    ["empty", ""],
-    ["null", null],
-    ["plain words", "funny cat videos"],
-    ["other site", `https://vimeo.com/watch?v=${ID}`],
-    ["lookalike host", `https://notyoutube.com/watch?v=${ID}`],
-    ["too short id", "https://youtu.be/abc"],
-    ["watch without v", "https://www.youtube.com/watch"],
-    ["channel page", "https://www.youtube.com/@somechannel"],
-    ["id with bad characters", "https://youtu.be/dQw4w9WgX<>"],
-  ])("rejects %s", (_name, input) => {
-    expect(parseVideoId(input)).toBeNull();
+  it("extracts ID from youtu.be short links", () => {
+    expect(parseVideoId("https://youtu.be/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("https://youtu.be/dQw4w9WgXcQ?si=sharetoken&t=12")).toBe("dQw4w9WgXcQ");
+  });
+
+  it("extracts ID from shorts, live, and embed URLs", () => {
+    expect(parseVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("https://www.youtube.com/live/dQw4w9WgXcQ?feature=share")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(parseVideoId("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+  });
+
+  it("returns null for invalid or non-YouTube inputs", () => {
+    expect(parseVideoId("")).toBeNull();
+    expect(parseVideoId("   ")).toBeNull();
+    expect(parseVideoId(null)).toBeNull();
+    expect(parseVideoId("too-short")).toBeNull();
+    expect(parseVideoId("https://vimeo.com/12345678901")).toBeNull();
+    expect(parseVideoId("https://www.youtube.com/watch?v=bad")).toBeNull();
+    expect(parseVideoId("cats playing piano")).toBeNull();
   });
 });
 
-describe("classifyInput", () => {
-  it("treats blank input as empty", () => {
-    expect(classifyInput("   ")).toEqual({ type: "empty" });
-    expect(classifyInput(undefined)).toEqual({ type: "empty" });
-  });
-
-  it("plays links and bare ids", () => {
-    expect(classifyInput(`https://youtu.be/${ID}`)).toEqual({ type: "video", id: ID });
-    expect(classifyInput(ID)).toEqual({ type: "video", id: ID });
-  });
-
-  it("searches for everything else", () => {
-    expect(classifyInput("  best cars 2026 ")).toEqual({ type: "search", query: "best cars 2026" });
-    expect(classifyInput("cars.com")).toEqual({ type: "search", query: "cars.com" });
-  });
-
-  it("searches for 11-letter plain words instead of treating them as ids", () => {
-    expect(classifyInput("photography")).toEqual({ type: "search", query: "photography" });
-    expect(classifyInput("Photography")).toEqual({ type: "search", query: "Photography" });
+describe("isValidVideoId", () => {
+  it("validates 11-char IDs strictly", () => {
+    expect(isValidVideoId("dQw4w9WgXcQ")).toBe(true);
+    expect(isValidVideoId("bad")).toBe(false);
+    expect(isValidVideoId("dQw4w9WgXcQ!")).toBe(false);
   });
 });

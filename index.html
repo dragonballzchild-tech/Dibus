@@ -1,48 +1,261 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#100b07">
-  <title>Dibus</title>
-  <link rel="preload" href="/fonts/bebas-neue-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-  <header class="topbar">
-    <a class="wordmark" href="/" aria-label="Dibus home">DIBUS</a>
-  </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Dibus — A calm, cookie-free YouTube watcher and search tool." />
+    <title>Dibus — Cookie-Free YouTube Watcher</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar glass">
+      <a class="wordmark" href="/" id="home-link" aria-label="Dibus home">DIBUS</a>
+      <button
+        type="button"
+        class="history-trigger"
+        id="history-open-btn"
+        aria-haspopup="dialog"
+        aria-controls="history-drawer"
+        aria-expanded="false"
+      >
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <polyline points="12 7 12 12 15.5 14" />
+        </svg>
+        <span>History</span>
+      </button>
+    </header>
 
-  <main class="page">
-    <form id="bar" class="searchbar" role="search" autocomplete="off">
-      <label class="sr-only" for="q">Search YouTube or paste a link</label>
-      <input id="q" name="q" type="text" placeholder="Search YouTube or paste a link" enterkeyhint="go" autocapitalize="off" spellcheck="false">
-      <button class="pill" type="submit">Go <span class="pill-arrow" aria-hidden="true">&rarr;</span></button>
-    </form>
-    <p id="hint" class="hint" role="status" hidden></p>
+    <main class="page">
+      <section class="hero" aria-label="Search or paste a YouTube link">
+        <form class="search-form" id="search-form" role="search" novalidate>
+          <div class="search-well glass">
+            <label class="sr-only" for="search-input">Search YouTube or paste a video link</label>
+            <input
+              id="search-input"
+              class="search-input"
+              type="text"
+              name="q"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="200"
+              placeholder="Search YouTube or paste a link / ID  (press /)"
+            />
+            <button
+              type="button"
+              id="search-clear-btn"
+              class="search-clear"
+              aria-label="Clear search"
+              hidden
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <button type="submit" class="pill-btn" id="search-submit-btn">
+            <span>Search</span>
+            <span class="pill-arrow" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="13 6 19 12 13 18" />
+              </svg>
+            </span>
+          </button>
+        </form>
 
-    <section id="player" class="player" aria-label="Video player" hidden>
-      <div id="player-frame" class="player-frame"></div>
-      <p id="player-error" class="player-error" role="alert" hidden>This video can&rsquo;t be played here. Open it on YouTube instead.</p>
-      <div class="strip">
-        <a id="open-yt" class="pill" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open on YouTube <span class="pill-arrow" aria-hidden="true">&rarr;</span></a>
+        <div class="status-banner" id="status-banner" role="status" aria-live="polite" hidden></div>
+
+        <section class="chips-area" id="chips-area" aria-label="Recent activity" hidden>
+          <div class="chips-group" id="recent-searches-group" hidden>
+            <div class="chips-header">
+              <span class="eyebrow">RECENT SEARCHES</span>
+              <button type="button" class="text-link-btn" id="clear-recent-searches">Clear</button>
+            </div>
+            <div class="chips-list" id="recent-searches-list"></div>
+          </div>
+          <div class="chips-group" id="recent-watched-group" hidden>
+            <div class="chips-header">
+              <span class="eyebrow">RECENTLY WATCHED</span>
+              <button type="button" class="text-link-btn" id="clear-recent-watched">Clear</button>
+            </div>
+            <div class="chips-list" id="recent-watched-list"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="watch-view" id="watch-view" aria-label="Video player" hidden>
+        <div class="watch-primary">
+          <div class="player-frame-wrap">
+            <div class="player-aspect" id="player-aspect">
+              <iframe
+                id="player-iframe"
+                title="YouTube video player"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                referrerpolicy="strict-origin-when-cross-origin"
+              ></iframe>
+            </div>
+            <div class="embed-error" id="embed-error" hidden>
+              <p class="embed-error-text">This video can't be embedded.</p>
+              <a
+                id="embed-error-yt-link"
+                class="pill-btn"
+                href="https://www.youtube.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span>Open on YouTube</span>
+                <span class="pill-arrow" aria-hidden="true">
+                  <svg class="icon" viewBox="0 0 24 24">
+                    <line x1="7" y1="17" x2="17" y2="7" />
+                    <polyline points="8 7 17 7 17 16" />
+                  </svg>
+                </span>
+              </a>
+            </div>
+          </div>
+
+          <div class="watch-meta">
+            <span class="eyebrow">NOW PLAYING</span>
+            <h1 class="watch-title" id="watch-title">Loading video…</h1>
+            <p class="watch-channel" id="watch-channel"></p>
+          </div>
+
+          <div class="control-strip glass">
+            <a
+              id="open-youtube-link"
+              class="control-btn"
+              href="https://www.youtube.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="7" y1="17" x2="17" y2="7" />
+                <polyline points="8 7 17 7 17 16" />
+              </svg>
+              <span>Open on YouTube</span>
+            </a>
+
+            <button type="button" class="control-btn" id="copy-link-btn">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="9" width="11" height="11" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span id="copy-link-label">Copy link</span>
+            </button>
+
+            <button type="button" class="control-btn control-btn-muted" id="cant-embed-btn">
+              <span>Won't play?</span>
+            </button>
+          </div>
+        </div>
+
+        <aside class="watch-sidebar" aria-label="Search results playlist">
+          <div class="sidebar-header">
+            <h2 class="section-heading" id="sidebar-heading">RESULTS</h2>
+          </div>
+          <div class="sidebar-list" id="sidebar-list"></div>
+          <p class="sidebar-empty" id="sidebar-empty" hidden>Search to fill this list</p>
+        </aside>
+      </section>
+
+      <section class="results-view" id="results-view" aria-label="Search results" hidden>
+        <div class="results-header">
+          <h2 class="section-heading" id="results-heading">RESULTS</h2>
+          <span class="results-count" id="results-count"></span>
+        </div>
+
+        <div class="results-grid" id="results-grid"></div>
+        <div class="scroll-sentinel" id="scroll-sentinel" aria-hidden="true"></div>
+
+        <div class="results-footer" id="results-footer" hidden>
+          <button type="button" class="pill-btn" id="load-more-btn" hidden>
+            <span>Load more</span>
+            <span class="pill-arrow" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <polyline points="6 13 12 19 18 13" />
+              </svg>
+            </span>
+          </button>
+          <span class="load-more-error" id="load-more-error" role="status" hidden></span>
+          <p class="results-end-msg" id="results-end-msg" hidden></p>
+        </div>
+      </section>
+    </main>
+
+    <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+    <aside
+      class="history-drawer glass"
+      id="history-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="history-drawer-title"
+      hidden
+    >
+      <div class="drawer-header">
+        <h2 class="section-heading" id="history-drawer-title">HISTORY</h2>
+        <button type="button" class="icon-btn" id="history-close-btn" aria-label="Close history">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
-    </section>
 
-    <section id="results" class="results" aria-label="Search results" hidden>
-      <h2 class="section-label">Results</h2>
-      <ul id="results-list" class="results-grid"></ul>
-      <div class="results-foot">
-        <div id="results-sentinel" class="sentinel" aria-hidden="true"></div>
-        <p id="results-end" class="results-end" hidden></p>
-        <p id="more-error" class="more-error" role="alert" hidden></p>
-        <button id="load-more" class="pill" type="button" hidden><span id="load-more-label">Load more</span> <span class="pill-arrow" aria-hidden="true">&rarr;</span></button>
+      <div class="drawer-tabs" role="tablist" aria-label="History categories">
+        <button
+          type="button"
+          class="tab-btn is-active"
+          id="tab-watched"
+          role="tab"
+          aria-selected="true"
+        >
+          Watched
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          id="tab-searches"
+          role="tab"
+          aria-selected="false"
+        >
+          Searches
+        </button>
       </div>
-    </section>
-  </main>
 
-  <script type="module" src="/src/app.js"></script>
-</body>
+      <div class="drawer-body" id="history-list"></div>
+
+      <div class="drawer-footer" id="drawer-footer">
+        <button type="button" class="pill-btn" id="history-clear-all-btn">
+          <span>Clear all</span>
+          <span class="pill-arrow" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </span>
+        </button>
+        <div class="confirm-clear" id="history-confirm-wrap" hidden>
+          <span class="confirm-text">Clear all history?</span>
+          <button type="button" class="pill-btn pill-btn-sm" id="history-confirm-yes">
+            <span>Yes, clear</span>
+          </button>
+          <button type="button" class="text-link-btn" id="history-confirm-no">Cancel</button>
+        </div>
+      </div>
+    </aside>
+
+    <footer class="site-footer">
+      <span>Dibus. Not affiliated with YouTube.</span>
+      <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">
+        YouTube Terms of Service
+      </a>
+    </footer>
+
+    <script type="module" src="src/app.js"></script>
+  </body>
 </html>
