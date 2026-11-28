@@ -10,14 +10,18 @@ import {
   canLoadMore,
   endMessage,
 } from "./search.js";
+import { sidebarTitle, historyMode } from "./view.js";
 
 const form = document.querySelector("#bar");
 const input = document.querySelector("#q");
 const hint = document.querySelector("#hint");
-const player = document.querySelector("#player");
+const watch = document.querySelector("#watch");
 const frame = document.querySelector("#player-frame");
 const openLink = document.querySelector("#open-yt");
 const playerError = document.querySelector("#player-error");
+const sidebarHeading = document.querySelector("#sidebar-title");
+const sidebarList = document.querySelector("#sidebar-list");
+const sidebarEmpty = document.querySelector("#sidebar-empty");
 const resultsSection = document.querySelector("#results");
 const resultsList = document.querySelector("#results-list");
 const sentinel = document.querySelector("#results-sentinel");
@@ -26,16 +30,30 @@ const moreError = document.querySelector("#more-error");
 const loadMoreBtn = document.querySelector("#load-more");
 const loadMoreLabel = document.querySelector("#load-more-label");
 
+// From 1024px the sidebar sits beside the player; below that it is stacked underneath.
+const wide = window.matchMedia("(min-width: 1024px)");
+
 let currentId = null;
 let searchToken = 0; // lets us ignore a slow search that finishes after a newer one
+let showResults = false; // the results grid may be on screen (it is hidden while a video plays)
+let searchScrollY = 0; // where the search view was scrolled to when a video opened
 
 function showHint(message) {
   hint.textContent = message;
   hint.hidden = !message;
 }
 
-function play(id, { push = true } = {}) {
-  const changed = id !== currentId;
+// Search view: the results grid. Watch view: the player with the sidebar list next to it.
+function syncView() {
+  const watching = currentId !== null;
+  document.body.dataset.view = watching ? "watch" : "search";
+  watch.hidden = !watching;
+  resultsSection.hidden = watching || !showResults;
+}
+
+function play(id, { push = true, source = "bar" } = {}) {
+  const previousId = currentId;
+  if (previousId === null) searchScrollY = window.scrollY;
   currentId = id;
   playerError.hidden = true;
   showHint("");
@@ -53,15 +71,25 @@ function play(id, { push = true } = {}) {
   frame.replaceChildren(iframe);
 
   openLink.href = watchUrl(id);
-  player.hidden = false;
-  if (push && changed) history.pushState({ id }, "", `?yt=${id}`);
+
+  // Before the view switches: hiding the grid shrinks the page, and the browser
+  // saves the scroll position of the entry we are leaving at this moment.
+  const mode = push ? historyMode(previousId, id, source) : "none";
+  if (mode === "push") history.pushState({ id }, "", `?yt=${id}`);
+  else if (mode === "replace") history.replaceState({ id }, "", `?yt=${id}`);
+
+  syncView();
+  markPlaying(id, { reveal: true });
 }
 
 function stop() {
+  const wasWatching = currentId !== null;
   currentId = null;
   frame.replaceChildren();
   playerError.hidden = true;
-  player.hidden = true;
+  markPlaying(null);
+  syncView();
+  if (wasWatching) window.scrollTo(0, searchScrollY); // back to where the grid was
 }
 
 function syncFromUrl() {
@@ -71,7 +99,7 @@ function syncFromUrl() {
   else stop();
 }
 
-// What the results grid is currently showing. `all` is everything fetched; `shown` is how many cards are on screen.
+// What the results are currently showing. `all` is everything fetched; `shown` is how many grid cards are on screen.
 const feed = { query: "", all: [], shown: 0, nextPageToken: null, loadingMore: false };
 
 // Reveals more cards (free, from data already fetched) when the bottom of the grid nears the screen.
@@ -120,7 +148,7 @@ function createCard(item) {
 
   card.addEventListener("click", () => {
     play(item.id);
-    player.scrollIntoView({ block: "start" });
+    window.scrollTo(0, 0);
   });
 
   const li = document.createElement("li");
@@ -132,6 +160,86 @@ function appendCards(from, to) {
   const fragment = document.createDocumentFragment();
   for (const item of feed.all.slice(from, to)) fragment.append(createCard(item));
   resultsList.append(fragment);
+}
+
+// Sidebar rows, one per loaded result. Built once per list so picking a video only moves the highlight.
+const rows = new Map(); // video id -> row button
+let playingRow = null;
+
+function createRow(item) {
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "row";
+
+  const thumb = document.createElement("img");
+  thumb.className = "row-thumb";
+  thumb.alt = "";
+  thumb.loading = "lazy";
+  thumb.referrerPolicy = "no-referrer";
+  thumb.width = 120;
+  thumb.height = 68;
+  if (item.thumbnail) thumb.src = item.thumbnail;
+
+  const title = document.createElement("span");
+  title.className = "row-title";
+  title.textContent = item.title;
+
+  const meta = document.createElement("span");
+  meta.className = "row-meta";
+  meta.textContent = item.channel;
+
+  const body = document.createElement("span");
+  body.className = "row-body";
+  body.append(title, meta);
+  row.append(thumb, body);
+
+  row.addEventListener("click", () => {
+    play(item.id, { source: "sidebar" });
+    if (!wide.matches) window.scrollTo(0, 0); // stacked layout: bring the player back into view
+  });
+
+  rows.set(item.id, row);
+  const li = document.createElement("li");
+  li.append(row);
+  return li;
+}
+
+// Scrolls the list (not the page) just enough to show the row.
+function keepInView(row) {
+  const top = row.offsetTop;
+  const bottom = top + row.offsetHeight;
+  if (top < sidebarList.scrollTop) sidebarList.scrollTop = top;
+  else if (bottom > sidebarList.scrollTop + sidebarList.clientHeight) sidebarList.scrollTop = bottom - sidebarList.clientHeight;
+}
+
+function markPlaying(id, { reveal = false } = {}) {
+  playingRow?.classList.remove("is-playing");
+  playingRow?.removeAttribute("aria-current");
+  playingRow = id ? (rows.get(id) ?? null) : null;
+  if (!playingRow) return;
+  playingRow.classList.add("is-playing");
+  playingRow.setAttribute("aria-current", "true");
+  if (reveal) keepInView(playingRow);
+}
+
+// Fills the sidebar from feed.all. `from` is the first result not yet shown there (0 rebuilds the list).
+function updateSidebar(from = 0) {
+  if (from === 0) {
+    sidebarList.replaceChildren();
+    rows.clear();
+    playingRow = null;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const item of feed.all.slice(from)) fragment.append(createRow(item));
+  sidebarList.append(fragment);
+
+  const empty = feed.all.length === 0;
+  sidebarHeading.textContent = sidebarTitle(feed.query);
+  sidebarHeading.title = sidebarHeading.textContent;
+  sidebarHeading.hidden = empty;
+  sidebarList.hidden = empty;
+  sidebarEmpty.hidden = !empty;
+  markPlaying(currentId);
 }
 
 function updateFooter() {
@@ -160,14 +268,15 @@ function showFeed(query, page) {
   feed.shown = 0;
   resultsList.replaceChildren();
   moreError.hidden = true;
+  updateSidebar(0);
+  showResults = feed.all.length > 0;
+  syncView();
 
   if (feed.all.length === 0) {
-    resultsSection.hidden = true;
     showHint(`Nothing found for “${query}”. Try different words.`);
     return;
   }
   showHint("");
-  resultsSection.hidden = false;
   // Without IntersectionObserver there is no scroll trigger, so show everything we have.
   feed.shown = observer ? nextBatch(0, feed.all.length) : feed.all.length;
   appendCards(0, feed.shown);
@@ -178,7 +287,8 @@ function showFeed(query, page) {
 async function runSearch(rawQuery) {
   const query = normalizeQuery(rawQuery);
   const token = ++searchToken;
-  resultsSection.hidden = true;
+  showResults = false;
+  syncView();
   showHint("Searching…");
   try {
     const page = await searchVideos(query);
@@ -201,6 +311,7 @@ async function loadMore() {
     if (token !== searchToken) return; // a newer search replaced this list
     const before = feed.all.length;
     feed.all = mergeResults(feed.all, page.results);
+    updateSidebar(before);
     // A page with nothing new means we have reached the end, so stop offering more.
     feed.nextPageToken = feed.all.length > before ? page.nextPageToken : null;
     revealMore();

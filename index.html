@@ -10,7 +10,7 @@
   <link rel="preload" href="/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body data-view="search">
   <header class="topbar">
     <a class="wordmark" href="/" aria-label="Dibus home">DIBUS</a>
   </header>
@@ -23,13 +23,21 @@
     </form>
     <p id="hint" class="hint" role="status" hidden></p>
 
-    <section id="player" class="player" aria-label="Video player" hidden>
-      <div id="player-frame" class="player-frame"></div>
-      <p id="player-error" class="player-error" role="alert" hidden>This video can&rsquo;t be played here. Open it on YouTube instead.</p>
-      <div class="strip">
-        <a id="open-yt" class="pill" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open on YouTube <span class="pill-arrow" aria-hidden="true">&rarr;</span></a>
-      </div>
-    </section>
+    <div id="watch" class="watch" hidden>
+      <section id="player" class="player" aria-label="Video player">
+        <div id="player-frame" class="player-frame"></div>
+        <p id="player-error" class="player-error" role="alert" hidden>This video can&rsquo;t be played here. Open it on YouTube instead.</p>
+        <div class="strip">
+          <a id="open-yt" class="pill" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open on YouTube <span class="pill-arrow" aria-hidden="true">&rarr;</span></a>
+        </div>
+      </section>
+
+      <aside id="sidebar" class="sidebar" aria-labelledby="sidebar-title">
+        <h2 id="sidebar-title" class="section-label sidebar-title" hidden>Results</h2>
+        <ul id="sidebar-list" class="sidebar-list" hidden></ul>
+        <p id="sidebar-empty" class="sidebar-empty">Search to fill this list</p>
+      </aside>
+    </div>
 
     <section id="results" class="results" aria-label="Search results" hidden>
       <h2 class="section-label">Results</h2>
