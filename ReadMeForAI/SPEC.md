@@ -9,19 +9,20 @@ A free-to-host, cookie-free YouTube watcher, modeled on https://michael.team/yt/
 **User stories**
 1. I paste a YouTube link or video ID and the video plays in an embedded player.
 2. I open `/?yt=<link or ID>` and the video plays immediately (shareable links).
-3. I type a query in the search bar and see accurate YouTube results (thumbnail, title, channel, duration/published date if available).
-4. I click a result and it plays on the same page. The player takes the main area and the results of my search stay in a sidebar on the right (like YouTube's watch page), so I can keep clicking through videos from the same search without searching again.
-5. I can clear the search bar with an (×) button, press `/` to focus it, and see chips for my recent searches and recently watched videos (stored only in my browser).
-6. I can open a History menu to see everything I've searched and watched, jump back to any item, remove single items, or clear it all.
-7. If a video cannot be embedded, I see a clear message and an "Open on YouTube" link.
-8. It works well on phones, tablets, and desktop, with fullscreen and picture-in-picture.
+3. I type a query in the search bar and see accurate YouTube results (thumbnail, title, channel, published date). Duration is not part of the search response, so it is left out of V1.
+4. I can see more results: the page shows 12 at a time as I scroll, and a Load more button fetches the next page from YouTube.
+5. I click a result and it plays on the same page. The player takes the main area and the results of my search stay in a sidebar on the right (like YouTube's watch page), so I can keep clicking through videos from the same search without searching again. The Back button steps through the videos I picked, in order, and then returns to the search results.
+6. I can clear the search bar with an (×) button, press `/` to focus it, and see chips for my recent searches and recently watched videos (stored only in my browser).
+7. I can open a History menu to see everything I've searched and watched, jump back to any item, remove single items, or clear it all.
+8. If a video cannot be embedded, I see a clear message and an "Open on YouTube" link.
+9. It works well on phones, tablets, and desktop, with fullscreen and picture-in-picture.
 
 ## Tech Stack
 
 - Frontend: plain HTML, CSS, and vanilla JavaScript (ES modules). No framework, no build step.
 - Fonts: Bebas Neue (display) and Inter (body), self-hosted as woff2 to keep the site tracker-free.
 - Playback: `https://www.youtube-nocookie.com/embed/<ID>` iframe.
-- Search: YouTube Data API v3, `search.list` endpoint (`part=snippet`, `type=video`, `maxResults=12`).
+- Search: YouTube Data API v3, `search.list` endpoint (`part=snippet`, `type=video`, `maxResults=50`, optional `pageToken` for the next page). One request costs 100 quota units whatever the page size, so fetching 50 costs the same as fetching 12.
 - Search proxy: a Vercel Function (`api/search.js`, standard fetch handler, shared logic in `lib/`), so the API key stays server-side. Edge caching through `Cache-Control: s-maxage` on the response (Vercel's CDN).
 - Hosting: Vercel Hobby plan (free, personal use). One GitHub repo, one deploy, frontend and function together. No build step (Framework Preset: Other).
 - Tests: Vitest for unit tests (pure functions).
@@ -40,16 +41,20 @@ Set API key secret:        Vercel dashboard → Project → Settings → Environ
 ## Project Structure
 
 ```
-index.html              → Page shell: URL input, search bar, player, results grid
+index.html              → Page shell: search bar, watch view (player + sidebar), results grid
 style.css               → Styles (mobile-first, dark theme only, design tokens as CSS variables)
 fonts/                  → Self-hosted woff2 font files (no third-party font requests)
-src/app.js              → Wires up UI events, URL param handling
-src/parse.js            → parseVideoId(input): extracts the 11-char ID or returns null
-src/search.js           → Calls /api/search, normalizes results
-api/search.js → Vercel Function: proxies + caches YouTube API calls
+src/app.js              → Wires up UI events, view switching, URL param handling
+src/parse.js            → parseVideoId(input) and classifyInput(input)
+src/player.js           → Embed URL and player-error helpers
+src/search.js           → Calls /api/search, normalizes results, reveal and merge helpers
+src/view.js             → Watch view helpers (sidebar heading)
+api/search.js           → Vercel Function: proxies + caches YouTube API calls (thin handler)
+lib/search-core.js      → Search logic used by api/search.js (outside api/, because every file in api/ becomes its own function)
 tests/                  → Vitest unit tests
-SPEC.md                 → This document
-README.md               → Setup and deploy instructions
+docs/GOOGLE_API_KEY.md  → Guide to creating the YouTube API key
+Read me for AI agent/   → SPEC.md (this document), plan.md, todo.md
+README.md               → Setup and deploy instructions (T14)
 ```
 
 ## Code Style
@@ -125,12 +130,14 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 **Layout (mobile-first)**
 1. Sticky frosted top bar: `DIBUS` wordmark left, `History` button right (the single search bar already accepts links, so no separate paste control).
 2. Hero: one large frosted search bar (accepts a search query or a YouTube link/ID), pill "Search" button.
-3. **Search view** (no video selected): hero search bar, chips for recent searches and recently watched videos, then the `RESULTS` grid (1 column on phones, 2 on tablets, 3 to 4 on desktop). Clicking a card switches to the watch view.
+3. **Search view** (no video selected): hero search bar, chips for recent searches and recently watched videos, then the `RESULTS` grid (1 column on phones, 2 on tablets, 3 to 4 on desktop). The grid shows 12 cards first and reveals 12 more each time the bottom comes into view; once everything loaded is visible and YouTube has more, a `Load more` pill button fetches the next page (up to 150 results per search in total). Clicking a card switches to the watch view; the grid is hidden while a video plays and comes back, at the same scroll position, when the person goes Back.
 4. **Watch view** (video selected):
-   - Desktop (≥ 1024 px): two columns. Left: 16:9 rounded player and the frosted control strip (Open on YouTube, Copy link). Right: a scrollable sidebar titled with the search query (e.g. `RESULTS FOR "CARS"`) listing the same results as compact rows (small thumbnail, title, channel). The playing video is highlighted with the lime accent line. Clicking a row swaps the video without losing the list or scroll position.
-   - Mobile/tablet: player on top, the same list stacked below it.
+   - Desktop (≥ 1024 px): two columns. Left: 16:9 rounded player and the frosted control strip (Open on YouTube, Copy link). Right: a sidebar titled with the search query (e.g. `RESULTS FOR "CARS"`) listing every result loaded so far (not only the 12 shown in the grid) as compact rows (small thumbnail, title, channel). The sidebar stays in view while the page scrolls and its list scrolls on its own. The playing video is highlighted with the lime accent line. Clicking a row swaps the video without losing the list or its scroll position. The page is wider in this view (up to 1320 px) so the player is not cramped.
+   - Mobile/tablet: player on top, the same list stacked below it. Picking a row scrolls the page back up to the player.
    - The sidebar reuses the results already fetched, so it costs no extra API quota.
+   - A search made while watching refills the sidebar; the video keeps playing.
    - If there is no previous search (e.g. someone opens a plain `?yt=ID` link), the sidebar shows an empty state: "Search to fill this list".
+   - Every video picked (from the grid, a sidebar row or a pasted link) adds a browser-history entry: Back goes to the previous video, and Back again returns to the search view.
 5. Footer: minimal, deep background, "Dibus. Not affiliated with YouTube." plus the link to YouTube's terms.
 
 **Extras included in V1**
@@ -149,25 +156,28 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 
 ## Testing Strategy
 
-- **Unit (Vitest):** `parseVideoId` covers watch, youtu.be, m.youtube, Shorts, Live, embed, bare ID, invalid input, URLs with extra params (`&t=30s`, `?si=`). Search result normalization covers missing fields.
-- **Function test:** `lib/search-core.js` (and the thin `api/search.js` handler) tested with a mocked `fetch` (success, quota-exceeded 403, empty query, upstream error).
+- **Unit (Vitest):** `parseVideoId` covers watch, youtu.be, m.youtube, Shorts, Live, embed, bare ID, invalid input, URLs with extra params (`&t=30s`, `?si=`). Search result normalization covers missing fields. Reveal-in-batches, merge-without-duplicates and page-token handling are covered. Watch view helpers are covered.
+- **Function test:** `lib/search-core.js` (and the thin `api/search.js` handler) tested with a mocked `fetch` (success, quota-exceeded 403, empty query, upstream error, page token).
+- **Page behavior:** checked in a headless browser with mocked search responses (view switching, sidebar, Back and Forward, layouts); these checks are run by hand and are not part of `npx vitest run`.
 - **Manual checklist before deploy:** paste a link, use `?yt=`, search, play a result, test a non-embeddable video, test on a phone, test fullscreen and PiP.
 - No coverage threshold; the parser and proxy must have tests.
 
 ## Boundaries
 
-- **Always:** validate and sanitize all input (query length ≤ 100 chars, video IDs match `^[A-Za-z0-9_-]{11}$`); render API data with `textContent`; use `youtube-nocookie.com`; keep the API key only in Vercel environment variables; run unit tests before deploy.
-- **Ask first:** adding any dependency or framework; adding a database or accounts; changing the hosting provider; anything that would increase API quota use (e.g. search-as-you-type).
+- **Always:** validate and sanitize all input (query length ≤ 100 chars, video IDs match `^[A-Za-z0-9_-]{11}$`, page tokens only letters, digits, `-` and `_` up to 100 characters); render API data with `textContent`; use `youtube-nocookie.com`; keep the API key only in Vercel environment variables; run unit tests before deploy.
+- **Ask first:** adding any dependency or framework; adding a database or accounts; changing the hosting provider; anything that would increase API quota use (e.g. search-as-you-type, fetching further pages automatically).
 - **Never:** commit the API key or put it in client code; scrape YouTube HTML or use unofficial endpoints; add analytics or trackers; download or re-host video content; strip or hide YouTube branding/links in a way that violates YouTube's API Terms of Service.
 
 ## Success Criteria
 
 - Pasting any of: `youtube.com/watch?v=ID`, `m.youtube.com/...`, `youtu.be/ID`, `/shorts/ID`, `/live/ID`, or a bare ID loads the correct video.
 - `/?yt=<link or ID>` autoplays-ready the correct video on load (browser autoplay rules permitting).
-- Search for a query returns up to 12 results in under 1.5 s (p50) on a normal connection; the same query repeated within an hour is served from cache.
+- A search returns up to 50 results in under 1.5 s (p50) on a normal connection; the same query repeated within an hour is served from cache.
+- The grid shows 12 results first and reveals 12 more each time the bottom comes into view, with no network request. A `Load more` button appears once everything loaded is visible and YouTube has a next page; pressing it fetches that page (one more search, 100 quota units), appends the results without duplicates, and stops at 150 results per search. Nothing fetches further pages automatically.
 - Results match what the YouTube Data API returns for that query (no re-ranking, no filtering beyond `type=video`).
 - Clicking a result plays it and updates the URL to `?yt=ID` without a full page reload.
-- After a search, clicking a result opens the watch view with the player and a right sidebar listing that search's results, with no additional API call; clicking another sidebar row plays it and keeps the list.
+- After a search, clicking a result opens the watch view with the player and a right sidebar listing that search's results, with no additional API call; clicking another sidebar row plays it and keeps the list and its scroll position.
+- Back goes to the previous video; Back again returns to the search results with the grid at the same scroll position.
 - Recent search and watched chips persist across reloads, can be cleared, and nothing about them leaves the browser.
 - `/` focuses the search bar; (×) clears it.
 - The History menu lists watched videos and searches (newest first), supports removing one item and clearing everything, and the cleared state persists after a reload.
@@ -184,7 +194,8 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 
 - Syncing or exporting history across devices: needs a server or an account.
 - Search-as-you-type suggestions: would burn the daily API quota quickly.
-- Pagination / "load more" results: extra quota use; V1 shows the first 12.
+- Fetching further pages automatically (endless scroll that calls the API): each page costs 100 quota units. Only the explicit `Load more` button fetches more.
+- Video duration on cards: not in `search.list`; would need `videos.list` (about 1 quota unit per call).
 - Channel pages, playlists, comments, related videos: not part of the minimal, distraction-free goal.
 - Accounts, favorites, cross-device history: needs a server and increases scope. (Browser-only recent chips are in V1.)
 - Short domain / redirect (like xoutu.be): requires buying a domain.
@@ -208,7 +219,12 @@ The tiny lime-green line in the reference is a decorative accent; use sparingly 
 - History menu added: full list of watched videos and searches, per-item remove and clear all, stored only in the browser.
 - Vercel Hobby is free but for personal, non-commercial use and pauses the account if free limits are exceeded; fine for a site shared with friends.
 - Shared code for functions lives in `lib/`, not `api/` (every file in `api/` becomes its own Vercel function).
+- More results (user chose the "middle option"): one request fetches 50 results; the page shows 12 at a time as the person scrolls, from data already loaded; an explicit `Load more` button fetches the next page; capped at 150 results per search. This replaces the earlier decision to keep 12 results and no "See more".
+- One search costs 100 quota units whatever the page size, so the first page of 50 costs the same as 12; each `Load more` press costs another 100.
+- Watch view (built in T7): the results grid is hidden while a video plays; the sidebar lists every loaded result and grows when `Load more` is pressed; a search made while watching refills the sidebar and the video keeps playing; the page widens to 1320 px in the watch view.
+- Back button (user): every video picked, whether from the grid, a sidebar row or a pasted link, adds a history entry, so Back steps through the videos in order and then returns to the search results. (An earlier build replaced the entry on sidebar picks; the user asked for this instead.)
+- SPEC.md, plan.md and todo.md live together in the repo folder `Read me for AI agent` (user).
 
 ## Open Questions
 
-None. Waiting for spec approval.
+None.

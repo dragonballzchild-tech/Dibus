@@ -1,6 +1,6 @@
 # Dibus V1: Task List
 
-Spec: `SPEC.md` | Plan: `tasks/plan.md`
+Spec: `SPEC.md` | Plan: `plan.md` (the spec, plan and this task list all live in the `Read me for AI agent` folder)
 Commands: tests `npx vitest run`, local static preview `python3 -m http.server 8000`, lint `npx eslint .`, deploy by pushing to GitHub (Vercel deploys automatically). The server function is tested on the deployed Vercel URL.
 No build step exists, so "Build succeeds" means the page loads without console errors.
 
@@ -11,7 +11,8 @@ No build step exists, so "Build succeeds" means the page loads without console e
 - T5 done (code, tests, live results). Cache-hit header (`x-vercel-cache: HIT`) not yet confirmed by the user.
 - T6 done: the user confirmed on the live site that cards appear and link/search both work.
 - T6b built: the server fetches 50 results per request with `pageToken`/`nextPageToken`; the page reveals 12 at a time on scroll and offers `Load more` (cap 150). Verified in a headless browser with mocked pages (reveal, Load more, cap, errors, dedupe, stale results, no-IntersectionObserver fallback, tall screens); live check by the user pending.
-- Next: T7 (watch view with the right-hand sidebar).
+- T7 built: watch view with the player on the left and a results sidebar on the right (stacked below the player under 1024 px). Verified with `tests/view.test.js` and a headless browser run using mocked search results (view switching, no extra API call, sidebar row swap keeps the list scroll, Back steps through the videos one by one and then restores the grid and its scroll position, layout at 1024/1023 px and on a phone, empty state for plain links, Load more feeding the sidebar). Live check by the user pending.
+- Next: the user checks T6b and T7 live (and the `x-vercel-cache` header from T5); then T8 (clear (×) button and `/` shortcut).
 
 ---
 
@@ -122,15 +123,21 @@ No build step exists, so "Build succeeds" means the page loads without console e
 ## Task 7: Watch view with right-hand results sidebar
 **Description:** When a result is clicked, switch to the watch view: player and frosted control strip on the left, scrollable sidebar `RESULTS FOR "<query>"` on the right (stacked below on screens under 1024 px) listing the same results as compact rows. The playing row gets the lime accent line. Clicking a row swaps the video, keeps the list and scroll position, and updates the URL. Plain `?yt=ID` with no prior search shows "Search to fill this list".
 **Acceptance criteria:**
-- [ ] Sidebar uses the already fetched results (no extra network call; verified in the Network tab)
-- [ ] Clicking a sidebar row changes the video without losing the list or scroll position
-- [ ] Layout switches correctly at the 1024 px breakpoint; empty-sidebar state shows for plain links
+- [x] Sidebar uses the already fetched results (no extra network call; checked by counting requests in a headless run, still to confirm in the Network tab live)
+- [x] Clicking a sidebar row changes the video without losing the list or scroll position
+- [x] Layout switches correctly at the 1024 px breakpoint; empty-sidebar state shows for plain links
 **Verification:**
-- [ ] `npx vitest run` passes (view-state helpers if any)
+- [x] `npx vitest run` passes (`tests/view.test.js`: sidebar heading text)
 - [ ] Manual: desktop two-column, phone stacked, rapid row clicking, browser back button returns to the search view
 **Dependencies:** Task 6b
-**Files likely touched:** `src/app.js`, `src/view.js`, `index.html`, `style.css`
+**Files likely touched:** `src/app.js`, `src/view.js`, `tests/view.test.js`, `index.html`, `style.css`
 **Estimated scope:** Medium
+**Decisions made while building (already folded into the SPEC.md decisions log):**
+- The grid is hidden while a video plays; Back returns to the grid at the same scroll position.
+- The sidebar lists every loaded result (it grows when `Load more` is pressed in the grid), not only the 12 shown.
+- Every video picked (from the grid, the sidebar or a pasted link) adds a browser-history entry, so Back steps through the videos in order and reaches the search view after the first one (user's choice).
+- A search made while watching refills the sidebar and the video keeps playing.
+- The page is wider in the watch view (up to 1320 px) so the player is not cramped next to the sidebar.
 
 ### Checkpoint: Core flow
 - [ ] Search, click, watch with sidebar works on the live URL and on a phone
