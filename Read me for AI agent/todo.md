@@ -11,7 +11,7 @@ No build step exists, so "Build succeeds" means the page loads without console e
 - T5 done (code, tests, live results). Cache-hit header (`x-vercel-cache: HIT`) not yet confirmed by the user.
 - T6 done: the user confirmed on the live site that cards appear and link/search both work.
 - T6b built: the server fetches 50 results per request with `pageToken`/`nextPageToken`; the page reveals 12 at a time on scroll and offers `Load more` (cap 150). Verified in a headless browser with mocked pages (reveal, Load more, cap, errors, dedupe, stale results, no-IntersectionObserver fallback, tall screens); live check by the user pending.
-- T7 built: watch view with the player on the left and a results sidebar on the right (stacked below the player under 1024 px). Verified with `tests/view.test.js` and a headless browser run using mocked search results (view switching, no extra API call, sidebar row swap keeps the list scroll and replaces the history entry, Back restores the grid and its scroll position, layout at 1024/1023 px and on a phone, empty state for plain links, Load more feeding the sidebar). Live check by the user pending.
+- T7 built: watch view with the player on the left and a results sidebar on the right (stacked below the player under 1024 px). Verified with `tests/view.test.js` and a headless browser run using mocked search results (view switching, no extra API call, sidebar row swap keeps the list scroll, Back steps through the videos one by one and then restores the grid and its scroll position, layout at 1024/1023 px and on a phone, empty state for plain links, Load more feeding the sidebar). Live check by the user pending.
 - Next: the user checks T6b and T7 live (and the `x-vercel-cache` header from T5); then T8 (clear (×) button and `/` shortcut).
 
 ---
@@ -127,7 +127,7 @@ No build step exists, so "Build succeeds" means the page loads without console e
 - [x] Clicking a sidebar row changes the video without losing the list or scroll position
 - [x] Layout switches correctly at the 1024 px breakpoint; empty-sidebar state shows for plain links
 **Verification:**
-- [x] `npx vitest run` passes (`tests/view.test.js`: sidebar heading text and history mode)
+- [x] `npx vitest run` passes (`tests/view.test.js`: sidebar heading text)
 - [ ] Manual: desktop two-column, phone stacked, rapid row clicking, browser back button returns to the search view
 **Dependencies:** Task 6b
 **Files likely touched:** `src/app.js`, `src/view.js`, `tests/view.test.js`, `index.html`, `style.css`
@@ -135,7 +135,7 @@ No build step exists, so "Build succeeds" means the page loads without console e
 **Decisions made while building (to fold into the SPEC.md decisions log):**
 - The grid is hidden while a video plays; Back returns to the grid at the same scroll position.
 - The sidebar lists every loaded result (it grows when `Load more` is pressed in the grid), not only the 12 shown.
-- Picking a video from the sidebar replaces the current browser-history entry, so Back goes to the search view instead of stepping through every video. Opening a video from the grid or pasting a link still adds an entry.
+- Every video picked (from the grid, the sidebar or a pasted link) adds a browser-history entry, so Back steps through the videos in order and reaches the search view after the first one (user's choice).
 - A search made while watching refills the sidebar and the video keeps playing.
 - The page is wider in the watch view (up to 1320 px) so the player is not cramped next to the sidebar.
 

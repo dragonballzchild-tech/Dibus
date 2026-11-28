@@ -10,7 +10,7 @@ import {
   canLoadMore,
   endMessage,
 } from "./search.js";
-import { sidebarTitle, historyMode } from "./view.js";
+import { sidebarTitle } from "./view.js";
 
 const form = document.querySelector("#bar");
 const input = document.querySelector("#q");
@@ -51,7 +51,7 @@ function syncView() {
   resultsSection.hidden = watching || !showResults;
 }
 
-function play(id, { push = true, source = "bar" } = {}) {
+function play(id, { push = true } = {}) {
   const previousId = currentId;
   if (previousId === null) searchScrollY = window.scrollY;
   currentId = id;
@@ -72,11 +72,10 @@ function play(id, { push = true, source = "bar" } = {}) {
 
   openLink.href = watchUrl(id);
 
-  // Before the view switches: hiding the grid shrinks the page, and the browser
+  // Every newly picked video gets its own entry, so Back steps through the videos in order.
+  // Done before the view switches: hiding the grid shrinks the page, and the browser
   // saves the scroll position of the entry we are leaving at this moment.
-  const mode = push ? historyMode(previousId, id, source) : "none";
-  if (mode === "push") history.pushState({ id }, "", `?yt=${id}`);
-  else if (mode === "replace") history.replaceState({ id }, "", `?yt=${id}`);
+  if (push && id !== previousId) history.pushState({ id }, "", `?yt=${id}`);
 
   syncView();
   markPlaying(id, { reveal: true });
@@ -194,7 +193,7 @@ function createRow(item) {
   row.append(thumb, body);
 
   row.addEventListener("click", () => {
-    play(item.id, { source: "sidebar" });
+    play(item.id);
     if (!wide.matches) window.scrollTo(0, 0); // stacked layout: bring the player back into view
   });
 
