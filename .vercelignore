@@ -1,5 +1,6 @@
 tests
-tasks
 docs
-SPEC.md
 eslint.config.js
+ReadMeForAI/SPEC.md
+ReadMeForAI/plan.md
+ReadMeForAI/todo.md
