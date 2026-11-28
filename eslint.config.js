@@ -1,19 +1,31 @@
-import js from "@eslint/js";
-import globals from "globals";
-
 export default [
-  { ignores: ["node_modules/", ".vercel/"] },
-  js.configs.recommended,
   {
-    files: ["src/**/*.js"],
-    languageOptions: { ecmaVersion: 2023, sourceType: "module", globals: globals.browser },
+    ignores: ["node_modules/**", "coverage/**", ".vercel/**"],
   },
   {
-    files: ["api/**/*.js", "lib/**/*.js"],
-    languageOptions: { ecmaVersion: 2023, sourceType: "module", globals: { ...globals.node } },
-  },
-  {
-    files: ["tests/**/*.js", "*.config.js"],
-    languageOptions: { ecmaVersion: 2023, sourceType: "module", globals: globals.node },
+    files: ["**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: {
+        process: "readonly",
+        fetch: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        URL: "readonly",
+        URLSearchParams: "readonly",
+        document: "readonly",
+        window: "readonly",
+        history: "readonly",
+        localStorage: "readonly",
+        navigator: "readonly",
+        confirm: "readonly",
+      },
+    },
+    rules: {
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "no-undef": "error",
+      "no-unreachable": "error",
+    },
   },
 ];

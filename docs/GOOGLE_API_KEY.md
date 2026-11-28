@@ -1,48 +1,49 @@
-# Get a YouTube API key and add it to Vercel (T4)
+# Create a YouTube Data API v3 key
 
-This takes about 10 minutes and costs nothing. The key lets Dibus's server ask YouTube for search results.
-The free daily allowance is 10,000 units, and one search costs 100 units, so about 100 uncached searches per day.
+This guide creates a server-side API key for Dibus. The key must be stored in Vercel and must never be committed to GitHub or included in browser code.
 
-**Keep the key secret.** Never paste it into a chat, a GitHub file, or the website's code. It only goes into Vercel (Part 2).
+## 1. Create a Google Cloud project
 
-## Part 1: Create the key in Google Cloud
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
+2. Sign in with your Google account.
+3. Open the project selector near the top of the page and choose **New Project**.
+4. Give it a name such as `Dibus YouTube Search` and create it.
+5. Select the new project.
 
-1. Go to https://console.cloud.google.com and sign in with a Google account. Accept the terms if asked.
-2. Click the project picker at the top of the page (it may say "Select a project"), then **New project**.
-3. Name it `dibus` and click **Create**. Wait for the notification, then make sure `dibus` is the selected project in the picker.
-4. Open the menu (☰) → **APIs & Services** → **Library**.
-5. Search for **YouTube Data API v3**, open it, and click **Enable**.
-6. Open the menu (☰) → **APIs & Services** → **Credentials**.
-7. Click **Create credentials** → **API key**. A key appears. Copy it somewhere private for the next part (a password manager or a private note).
-8. Restrict the key so it can only be used for YouTube:
-   - Click **Edit API key** (or the key's name in the list).
-   - Under **Application restrictions**, leave **None** (Vercel's server addresses change, so an address restriction would break the site).
-   - Under **API restrictions**, choose **Restrict key**, tick **YouTube Data API v3**, and click **OK**.
-   - Click **Save**.
+## 2. Enable YouTube Data API v3
 
-If Google asks you to add a billing account or a credit card at any step, stop and tell me. The basic YouTube quota should not need one.
+1. Open **APIs & Services → Library**.
+2. Search for **YouTube Data API v3**.
+3. Open it and select **Enable**.
 
-## Part 2: Add the key to Vercel
+## 3. Create an API key
 
-1. In Vercel, open your **dibus** project → **Settings** → **Environment Variables**.
-2. Add a variable:
-   - **Key:** `YOUTUBE_API_KEY` (exactly this, capital letters)
-   - **Value:** paste the key
-   - **Environments:** leave all ticked (Production, Preview, Development)
-   - If you see a **Sensitive** option, turn it on.
-3. Click **Save**.
-4. Variables only apply to new deployments, so redeploy: **Deployments** → the latest one → the **⋯** menu → **Redeploy**.
+1. Open **APIs & Services → Credentials**.
+2. Select **Create Credentials → API key**.
+3. Copy the generated key and keep it private.
+4. Open the key's settings. Under **API restrictions**, choose **Restrict key** and select **YouTube Data API v3**.
+5. Save the restriction.
 
-## Part 3: Check that it works (after T5 is uploaded)
+For this server-side Vercel Function, do not add browser HTTP-referrer restrictions: requests originate from Vercel's server environment, not the visitor's browser. API restriction to YouTube Data API v3 is still recommended. If you later add an appropriate server-side IP restriction, make sure it matches the deployment's actual egress setup.
 
-Open `https://YOUR-SITE.vercel.app/api/search?q=cars` in your browser. You should see a block of text starting with `{"query":"cars","results":[` followed by video titles.
+## 4. Add the key to Vercel
 
-| What you see | Meaning |
-|---|---|
-| Video results | It works |
-| `server_not_configured` | The key isn't set, or you haven't redeployed since adding it |
-| `upstream_error` | Google rejected the key. Check that the YouTube Data API v3 is enabled and the key isn't mistyped |
-| `quota_exceeded` | The daily free allowance is used up. It resets once a day |
+1. Open your Dibus project in [Vercel](https://vercel.com/dashboard).
+2. Go to **Settings → Environment Variables**.
+3. Add a variable named exactly `YOUTUBE_API_KEY`.
+4. Paste the API key as its value.
+5. Select the environments you use (Preview and Production; Development if you use Vercel CLI).
+6. Save the variable.
+7. Redeploy the project so the function receives the new environment variable.
 
-## If the key ever leaks
-In Google Cloud → Credentials, delete the key, create a new one, and update it in Vercel (Part 2).
+Do not put the key in `index.html`, `src/`, `README.md`, `.env.example`, or any other file committed to Git. `.env` is ignored by Git; keep any local secret there only if needed.
+
+## 5. Verify
+
+After deployment, open the Dibus site and search for a common term. The browser should call the same-origin `/api/search` endpoint. Inspect the request and response: the API key must not appear in the browser URL, response body, or page source. The request to Google's API happens only inside the Vercel Function.
+
+## Quota
+
+The YouTube Data API has a daily quota. A `search.list` request has a quota cost, so Dibus intentionally searches only after the user submits the form and caches successful responses at Vercel's edge for one hour. If the API reports quota exhaustion, Dibus shows a message and direct video-link playback remains available.
+
+Check current quota and project usage in Google Cloud Console under **APIs & Services → YouTube Data API v3 → Metrics** (the exact console navigation may change).
