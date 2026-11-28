@@ -10,13 +10,20 @@ export class SearchError extends Error {
 /** Same query written differently should hit the same cached result. */
 export const normalizeQuery = (raw) => (raw ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 
+export const REVEAL_SIZE = 12; // cards shown at a time
+export const MAX_LOADED = 150; // stop offering more after 3 pages of 50
+
 const isResult = (r) => r && typeof r.id === "string" && typeof r.title === "string";
 
-/** Returns an array of { id, title, channel, thumbnail, publishedAt } or throws SearchError(code). */
-export async function searchVideos(query, { fetchImpl = fetch } = {}) {
+/**
+ * Returns { results, nextPageToken } where results is an array of
+ * { id, title, channel, thumbnail, publishedAt }, or throws SearchError(code).
+ */
+export async function searchVideos(query, { pageToken = null, fetchImpl = fetch } = {}) {
   let response;
   try {
-    response = await fetchImpl(`/api/search?q=${encodeURIComponent(query)}`);
+    const extra = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
+    response = await fetchImpl(`/api/search?q=${encodeURIComponent(query)}${extra}`);
   } catch {
     throw new SearchError("network");
   }
@@ -33,7 +40,34 @@ export async function searchVideos(query, { fetchImpl = fetch } = {}) {
     throw new SearchError(known.includes(data?.error) ? data.error : "unavailable");
   }
   if (!Array.isArray(data?.results)) throw new SearchError("unavailable");
-  return data.results.filter(isResult);
+  const nextPageToken = typeof data.nextPageToken === "string" && data.nextPageToken ? data.nextPageToken : null;
+  return { results: data.results.filter(isResult), nextPageToken };
+}
+
+/** How many cards to show after revealing another batch. */
+export const nextBatch = (shown, total, size = REVEAL_SIZE) => Math.min(total, shown + size);
+
+/** Appends new results to the existing list, skipping any video we already have. */
+export function mergeResults(existing, incoming) {
+  const seen = new Set(existing.map((r) => r.id));
+  const merged = [...existing];
+  for (const item of incoming) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+/** The Load more button is offered only while YouTube has more and we are under the cap. */
+export const canLoadMore = (loaded, nextPageToken, max = MAX_LOADED) => Boolean(nextPageToken) && loaded < max;
+
+/** Text shown under the grid once everything loaded is visible and no button is offered. */
+export function endMessage(loaded, nextPageToken, max = MAX_LOADED) {
+  if (!nextPageToken) return "End of results";
+  if (loaded >= max) return "That’s all for now. Try a more specific search.";
+  return "";
 }
 
 export function errorMessage(code) {

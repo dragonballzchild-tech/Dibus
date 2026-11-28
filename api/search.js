@@ -16,8 +16,12 @@ export default {
       });
     }
 
-    const query = new URL(request.url).searchParams.get("q");
-    const { status, body, cache } = await handleSearch({ query, apiKey: process.env.YOUTUBE_API_KEY });
+    const params = new URL(request.url).searchParams;
+    const { status, body, cache } = await handleSearch({
+      query: params.get("q"),
+      pageToken: params.get("pageToken"),
+      apiKey: process.env.YOUTUBE_API_KEY,
+    });
     return new Response(request.method === "HEAD" ? null : JSON.stringify(body), {
       status,
       headers: { ...baseHeaders, "cache-control": cache },

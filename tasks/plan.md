@@ -13,6 +13,7 @@ Dibus is a static, dark, frosted-glass YouTube watcher hosted free on Vercel. A 
 - **Deploy a skeleton first.** Hosting plus a server function is the main infrastructure risk, so it is exercised in Task 2 before features pile up.
 - **Vertical slices.** Each task leaves the site working: play a link, then search, then watch view, then history.
 - **Search results are the sidebar data.** The watch view reuses the already fetched list, so it costs no extra quota.
+- **More results without burning quota:** one request fetches 50 results (same 100 units as 12). The page reveals 12 at a time on scroll from loaded data, and an explicit `Load more` button fetches the next page (capped at 150 results per search). New task T6b.
 - **Result card data:** thumbnail, title, channel, relative published date. Duration is not in `search.list`, so it is left out of V1 (can be added later with `videos.list`, about 1 quota unit per call).
 - **Browser storage via one wrapper** (`storage.js`), wrapped in try/catch so private mode or blocked storage degrades gracefully instead of crashing.
 
@@ -44,9 +45,10 @@ T1 scaffold + tokens + fonts
 - [ ] `npx vitest run` passes; skeleton is live on a `*.vercel.app` URL; pasting a link plays a video there
 
 ### Phase 2: Search and watch view
-- [ ] T4: Create the Google API key and store it as a secret (guide written; user action pending)
-- [ ] T5: Search proxy function with caching (code + tests done; live check pending the key)
-- [ ] T6: Search UI: results grid
+- [x] T4: Create the Google API key and store it as a secret
+- [x] T5: Search proxy function with caching (cache-hit header check still to confirm)
+- [x] T6: Search UI: results grid
+- [ ] T6b: More results: reveal 12 at a time on scroll, plus a `Load more` button (built and tested with mocks; live check pending)
 - [ ] T7: Watch view with right-hand results sidebar
 
 ### Checkpoint: Core flow
@@ -75,7 +77,7 @@ T1 scaffold + tokens + fonts
 |---|---|---|
 | Repeat searches may not be cached as expected by Vercel's CDN | High: quota burns faster than planned | T5 sets `Cache-Control: s-maxage` and includes a spike to confirm repeat queries are cache hits on the deployed URL; fallback is a longer `s-maxage` plus the browser-side last-search store |
 | Vercel Hobby is for personal, non-commercial use and pauses the account if free limits are exceeded | Low-Med | Site is shared with friends only; about 1M function calls per month are included, and cached hits are not counted as invocations |
-| Free quota is about 100 uncached searches/day | Med | Search only on submit (no autocomplete), edge cache, sidebar reuses results, clear "limit reached" message that keeps paste-and-play working |
+| Free quota is about 100 uncached searches/day | Med | Search only on submit (no autocomplete), edge cache, sidebar reuses results, clear "limit reached" message that keeps paste-and-play working. `Load more` is an explicit button (each press costs 100 units) and loading stops at 150 results per search |
 | API key leaks into the repo or client code | High | Key only in Vercel environment variable; `.env.local` in `.gitignore` from T1; T5 and checkpoint verify it is absent from served files |
 | Some videos block embedding | Med | T3 detects the failure and shows the "Open on YouTube" fallback |
 | `backdrop-filter` is slow or unsupported on low-end phones | Low-Med | Limit glass to 3 surfaces; solid fallback via `@supports` and `prefers-reduced-transparency` (T13) |

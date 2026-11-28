@@ -7,9 +7,11 @@ No build step exists, so "Build succeeds" means the page loads without console e
 ## Status (updated)
 - T1 done. T2 done on **Vercel** (Cloudflare was not usable); the user confirmed the live site works.
 - T3 built and unit-tested; real YouTube playback and the embed-error message still need a manual check on the live site.
-- T4: guide written (`docs/GOOGLE_API_KEY.md`); the user still has to create the key and add it to Vercel.
-- T5: code and unit tests done (`lib/search-core.js`, `api/search.js`, temporary ping removed); live check (real results, cache hit) waits for the key.
-- Next: user does T4, we verify T5 live, then T6 (search UI).
+- T4 done: the user created the key and added it to Vercel; `/api/search?q=cars` returns real results live.
+- T5 done (code, tests, live results). Cache-hit header (`x-vercel-cache: HIT`) not yet confirmed by the user.
+- T6 done: the user confirmed on the live site that cards appear and link/search both work.
+- T6b built: the server fetches 50 results per request with `pageToken`/`nextPageToken`; the page reveals 12 at a time on scroll and offers `Load more` (cap 150). Verified in a headless browser with mocked pages (reveal, Load more, cap, errors, dedupe, stale results, no-IntersectionObserver fallback, tall screens); live check by the user pending.
+- Next: T7 (watch view with the right-hand sidebar).
 
 ---
 
@@ -63,11 +65,11 @@ No build step exists, so "Build succeeds" means the page loads without console e
 ## Task 4: Create the Google API key and store it as a secret (guided)
 **Description:** Write `docs/GOOGLE_API_KEY.md` and walk the user through it: create a Google Cloud project, enable YouTube Data API v3, create an API key, restrict it to that API, then store it in Vercel (Project Settings → Environment Variables → `YOUTUBE_API_KEY`). Current Console steps are checked via web search when this task starts.
 **Acceptance criteria:**
-- [ ] Key restricted to YouTube Data API v3 only
-- [ ] Secret set on the Vercel project as an environment variable; no key file is committed (`.env*` is git-ignored)
-- [ ] The key is never pasted into chat, code, or committed files
+- [x] Key restricted to YouTube Data API v3 only
+- [x] Secret set on the Vercel project as an environment variable; no key file is committed (`.env*` is git-ignored)
+- [x] The key is never pasted into chat, code, or committed files
 **Verification:**
-- [ ] Manual: `git status` shows no key; a test `curl` through the function (after T5) returns results
+- [x] Manual: `git status` shows no key; a test `curl` through the function (after T5) returns results
 **Dependencies:** Task 2
 **Files likely touched:** `docs/GOOGLE_API_KEY.md`
 **Estimated scope:** Small (mostly user actions)
@@ -77,11 +79,12 @@ No build step exists, so "Build succeeds" means the page loads without console e
 **Acceptance criteria:**
 - [x] Valid query returns up to 12 normalized results; empty or too-long query returns 400
 - [x] Quota-exceeded upstream response returns a distinct error code the UI can recognize
-- [ ] Repeat of the same query within an hour is served from cache (verified on the deployed URL), or the fallback from the plan is applied
+- [ ] Repeat of the same query within an hour is served from cache (verified on the deployed URL), or the fallback from the plan is applied (pending: user to check `x-vercel-cache`)
 - [x] Response and source contain no API key
 **Verification:**
 - [x] `npx vitest run` passes (mocked fetch: success, 403 quota, 500, bad input, missing fields)
-- [ ] Manual: call the live endpoint twice and confirm the second is a cache hit; remove `ping.js`
+- [x] `ping.js` removed; live endpoint returns real results (user confirmed)
+- [ ] Manual: call the live endpoint twice and confirm the second is a cache hit
 **Dependencies:** Tasks 2, 4
 **Files likely touched:** `api/search.js`, `lib/search-core.js`, `tests/search-core.test.js`, `api/ping.js` (delete)
 **Estimated scope:** Medium
@@ -89,15 +92,31 @@ No build step exists, so "Build succeeds" means the page loads without console e
 ## Task 6: Search UI: results grid
 **Description:** Make the single search bar route input through `classifyInput`: links and IDs play, anything else searches. Show the `RESULTS` grid (1 to 4 columns) with loading, empty and error states, including the "Search limit reached for today, paste a link instead" message. Clicking a card plays it.
 **Acceptance criteria:**
-- [ ] Typing a query and pressing Enter shows up to 12 cards; clicking one plays it
-- [ ] Pasting a link in the same bar plays it instead of searching
-- [ ] Loading, "Nothing found", network error and quota messages are styled per the spec
-- [ ] All API text is rendered with `textContent` (no `innerHTML`)
+- [x] Typing a query and pressing Enter shows up to 12 cards; clicking one plays it
+- [x] Pasting a link in the same bar plays it instead of searching
+- [x] Loading, "Nothing found", network error and quota messages are styled per the spec
+- [x] All API text is rendered with `textContent` (no `innerHTML`)
 **Verification:**
-- [ ] `npx vitest run` passes (`search.js` client normalization and error mapping)
-- [ ] Manual: search on desktop and phone, trigger each state (offline mode for network error)
+- [x] `npx vitest run` passes (`search.js` client normalization and error mapping)
+- [x] Manual: search on desktop, tap a card, link and search both work (user confirmed live)
 **Dependencies:** Tasks 3, 5
 **Files likely touched:** `src/search.js`, `tests/search.test.js`, `src/app.js`, `index.html`, `style.css`
+**Estimated scope:** Medium
+
+## Task 6b: More results: reveal on scroll and Load more
+**Description:** Change the server to fetch 50 results per search and accept an optional `pageToken`, returning `nextPageToken` when YouTube has more. On the page, show the first 12 cards, reveal the next 12 from loaded data as the user scrolls near the bottom, and show a `Load more` button once everything loaded is visible and a next page exists. Cap at 150 results per search.
+**Acceptance criteria:**
+- [x] `/api/search` requests `maxResults=50`, accepts an optional `pageToken` (validated: letters, digits, `-` and `_`, up to 100 characters), and returns `nextPageToken` (or `null`); a bad token returns 400; the key still never appears in responses
+- [x] The grid shows 12 cards first; scrolling near the bottom reveals 12 more with no network request; browsers without `IntersectionObserver` show all loaded results at once
+- [x] `Load more` appears only when all loaded results are visible and a next page exists and fewer than 150 are loaded; pressing it fetches the next page, appends results without duplicates, and reveals 12 at a time
+- [x] A failed `Load more` shows a message next to the button, keeps existing results, and can be retried
+- [x] The end of results shows "End of results" (no more pages) or "That's all for now. Try a more specific search." (cap reached)
+- [x] A new search replaces the previous list and resets the reveal count and page token
+**Verification:**
+- [x] `npx vitest run` passes (pageToken validation, `nextPageToken` pass-through, reveal-in-batches helper, merge-without-duplicates helper, client passes `pageToken`)
+- [ ] Manual: search a broad term, scroll to reveal batches, press `Load more` once, confirm the quota use is 200 units for that search in the Google Cloud quota page
+**Dependencies:** Task 6
+**Files likely touched:** `lib/search-core.js`, `api/search.js`, `src/search.js`, `src/app.js`, `style.css`, `tests/search-core.test.js`, `tests/search-handler.test.js`, `tests/search.test.js`
 **Estimated scope:** Medium
 
 ## Task 7: Watch view with right-hand results sidebar
@@ -109,7 +128,7 @@ No build step exists, so "Build succeeds" means the page loads without console e
 **Verification:**
 - [ ] `npx vitest run` passes (view-state helpers if any)
 - [ ] Manual: desktop two-column, phone stacked, rapid row clicking, browser back button returns to the search view
-**Dependencies:** Task 6
+**Dependencies:** Task 6b
 **Files likely touched:** `src/app.js`, `src/view.js`, `index.html`, `style.css`
 **Estimated scope:** Medium
 

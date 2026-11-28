@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   validateQuery,
+  validatePageToken,
   buildSearchUrl,
   decodeEntities,
   normalizeItems,
@@ -37,12 +38,32 @@ describe("validateQuery", () => {
 });
 
 describe("buildSearchUrl", () => {
-  it("asks for 12 videos and never includes a key", () => {
+  it("asks for 50 videos and never includes a key", () => {
     const url = new URL(buildSearchUrl("cars & trucks"));
     expect(url.searchParams.get("q")).toBe("cars & trucks");
     expect(url.searchParams.get("type")).toBe("video");
-    expect(url.searchParams.get("maxResults")).toBe("12");
+    expect(url.searchParams.get("maxResults")).toBe("50");
+    expect(url.searchParams.has("pageToken")).toBe(false);
     expect(url.searchParams.has("key")).toBe(false);
+  });
+  it("adds the page token when given", () => {
+    expect(new URL(buildSearchUrl("cars", "CDIQAA")).searchParams.get("pageToken")).toBe("CDIQAA");
+  });
+});
+
+describe("validatePageToken", () => {
+  it("treats missing tokens as the first page", () => {
+    for (const none of [undefined, null, ""]) expect(validatePageToken(none)).toEqual({ ok: true, token: null });
+  });
+  it("accepts YouTube-style tokens", () => {
+    expect(validatePageToken("CDIQAA")).toEqual({ ok: true, token: "CDIQAA" });
+    expect(validatePageToken("a-b_C9")).toEqual({ ok: true, token: "a-b_C9" });
+    expect(validatePageToken("x".repeat(100)).ok).toBe(true);
+  });
+  it("rejects anything else", () => {
+    for (const bad of ["x".repeat(101), "has space", "semi;colon", "a/b", "<script>", 42, {}]) {
+      expect(validatePageToken(bad)).toEqual({ ok: false, error: "bad_page_token" });
+    }
   });
 });
 
@@ -66,6 +87,10 @@ describe("normalizeItems", () => {
     expect(out[0].thumbnail).toBe("d.jpg");
     expect(out[1]).toMatchObject({ title: "", channel: "", thumbnail: "", publishedAt: "" });
   });
+  it("trims stray whitespace from titles and channels", () => {
+    const out = normalizeItems({ items: [item("dQw4w9WgXcQ", { title: "  Hello ", channelTitle: "Disney Jr. " })] });
+    expect(out[0]).toMatchObject({ title: "Hello", channel: "Disney Jr." });
+  });
   it("drops items without a valid video id (channels, playlists)", () => {
     expect(normalizeItems({ items: [{ id: { channelId: "x" }, snippet: {} }, item("short")] })).toEqual([]);
   });
@@ -87,6 +112,27 @@ describe("handleSearch", () => {
     expect(url).not.toContain(KEY);
     expect(init.headers["x-goog-api-key"]).toBe(KEY);
     expect(JSON.stringify(res)).not.toContain(KEY);
+  });
+
+  it("passes the page token to YouTube and returns nextPageToken", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(ok({ items: [item("dQw4w9WgXcQ")], nextPageToken: "CDIQAA" }));
+    const res = await handleSearch({ query: "cars", pageToken: "CAUQAA", apiKey: KEY, fetchImpl });
+    expect(new URL(fetchImpl.mock.calls[0][0]).searchParams.get("pageToken")).toBe("CAUQAA");
+    expect(res.body.nextPageToken).toBe("CDIQAA");
+  });
+
+  it("returns a null nextPageToken when YouTube has no more pages or sends an odd token", async () => {
+    const none = await handleSearch({ query: "cars", apiKey: KEY, fetchImpl: vi.fn().mockResolvedValue(ok({ items: [] })) });
+    expect(none.body.nextPageToken).toBeNull();
+    const odd = await handleSearch({ query: "cars", apiKey: KEY, fetchImpl: vi.fn().mockResolvedValue(ok({ items: [], nextPageToken: "bad token!" })) });
+    expect(odd.body.nextPageToken).toBeNull();
+  });
+
+  it("rejects a bad page token without calling YouTube", async () => {
+    const fetchImpl = vi.fn();
+    const res = await handleSearch({ query: "cars", pageToken: "bad token!", apiKey: KEY, fetchImpl });
+    expect(res).toEqual({ status: 400, body: { error: "bad_page_token" }, cache: CACHE_NONE });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("rejects bad queries without calling YouTube", async () => {

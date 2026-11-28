@@ -26,6 +26,22 @@ describe("GET /api/search", () => {
     expect(JSON.stringify(data)).not.toContain(KEY);
   });
 
+  it("forwards pageToken and returns nextPageToken", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", KEY);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ items: [], nextPageToken: "CDIQAA" }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await call("/api/search?q=cars&pageToken=CAUQAA");
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("pageToken")).toBe("CAUQAA");
+    expect((await res.json()).nextPageToken).toBe("CDIQAA");
+  });
+
+  it("returns 400 for a malformed pageToken", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", KEY);
+    const res = await call("/api/search?q=cars&pageToken=bad%20token");
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad_page_token" });
+  });
+
   it("returns 400 and no caching for a missing query", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", KEY);
     const res = await call("/api/search");
