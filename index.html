@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#100b07" />
+    <meta name="description" content="Dibus — a quieter way to watch YouTube." />
+    <title>Dibus — YouTube, without the noise</title>
+    <link rel="preconnect" href="https://www.youtube-nocookie.com" />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/src/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar glass">
+      <a class="wordmark" href="/" aria-label="Dibus home">DIBUS<span class="wordmark-dot">.</span></a>
+      <button class="history-trigger" id="history-open" type="button" aria-haspopup="dialog" aria-controls="history-panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8m0-5v5h5m4-1v5l3 2" /></svg>
+        <span>History</span>
+      </button>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow"><span class="eyebrow-line"></span> YOUR QUIETER CORNER OF YOUTUBE</p>
+        <h1 id="hero-title">Watch what<br /><span>moves you.</span></h1>
+        <p class="hero-copy">No recommendations. No noise. Just the video you came for.</p>
+        <form class="search-form glass" id="search-form" role="search">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+          <label class="sr-only" for="search-input">Search YouTube or paste a video link</label>
+          <input id="search-input" name="q" type="search" maxlength="300" autocomplete="off" placeholder="Search or paste a YouTube link…" />
+          <button class="clear-search" id="clear-search" type="button" aria-label="Clear search" hidden>×</button>
+          <button class="pill-button search-submit" type="submit"><span>Search</span><span class="pill-arrow" aria-hidden="true">↗</span></button>
+        </form>
+        <p class="search-hint"><kbd>/</kbd> to focus <span>·</span> Paste a link or video ID to play directly</p>
+      </section>
+
+      <section class="recent-section" id="recent-section" aria-label="Recent activity" hidden>
+        <div class="recent-group" id="recent-search-group">
+          <div class="section-heading"><span class="eyebrow">PICK UP WHERE YOU LEFT OFF</span><button class="text-button" id="clear-recent" type="button">Clear</button></div>
+          <div class="chip-list" id="recent-searches"></div>
+        </div>
+        <div class="recent-group" id="recent-watch-group">
+          <div class="section-heading"><span class="eyebrow">RECENTLY WATCHED</span></div>
+          <div class="chip-list" id="recent-watched"></div>
+        </div>
+      </section>
+
+      <section class="results-section" id="results-section" aria-live="polite">
+        <div class="section-heading results-heading" id="results-heading" hidden>
+          <div><p class="eyebrow">CHAPTER I</p><h2>RESULTS</h2></div>
+          <span class="result-count" id="result-count"></span>
+        </div>
+        <div class="status-message" id="status-message" role="status">Start with a search, or paste a YouTube link above.</div>
+        <div class="results-grid" id="results-grid"></div>
+      </section>
+
+      <section class="watch-layout" id="watch-layout" hidden>
+        <div class="watch-main">
+          <div class="player-frame" id="player-frame">
+            <div class="player-placeholder" id="player-placeholder">
+              <span class="placeholder-orbit"><span></span></span>
+              <p>Preparing your video</p>
+            </div>
+            <iframe id="youtube-player" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" hidden></iframe>
+            <div class="player-error" id="player-error" hidden>
+              <p class="eyebrow">PLAYBACK UNAVAILABLE</p>
+              <h2>This video can't be embedded.</h2>
+              <p>Some videos restrict playback on external websites.</p>
+              <a class="pill-button" id="error-youtube-link" href="https://www.youtube.com" target="_blank" rel="noopener noreferrer"><span>Open on YouTube</span><span class="pill-arrow">↗</span></a>
+            </div>
+          </div>
+          <div class="player-controls glass">
+            <div class="now-playing"><span class="live-indicator"></span><span>NOW PLAYING</span></div>
+            <div class="control-actions">
+              <a class="icon-action" id="open-youtube" href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" aria-label="Open on YouTube" title="Open on YouTube"><svg viewBox="0 0 24 24"><path d="M14 4h6v6m-1-5-9 9"/><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg></a>
+              <button class="icon-action" id="copy-link" type="button" aria-label="Copy share link" title="Copy share link"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+            </div>
+            <span class="copy-feedback" id="copy-feedback" aria-live="polite"></span>
+          </div>
+          <div class="video-meta" id="video-meta" hidden>
+            <h1 id="video-title"></h1>
+            <p id="video-channel"></p>
+          </div>
+        </div>
+        <aside class="watch-sidebar" aria-label="Search results">
+          <div class="sidebar-heading"><p class="eyebrow">YOUR QUEUE</p><h2 id="sidebar-title">SEARCH TO FILL THIS LIST</h2></div>
+          <div class="sidebar-list" id="sidebar-list"><p class="sidebar-empty">Search to fill this list.</p></div>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="site-footer"><span>DIBUS<span class="wordmark-dot">.</span></span><span>Not affiliated with YouTube.</span><a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms</a></footer>
+
+    <div class="drawer-backdrop" id="history-backdrop" hidden></div>
+    <section class="history-panel" id="history-panel" role="dialog" aria-modal="true" aria-labelledby="history-title" hidden>
+      <div class="history-header"><div><p class="eyebrow">YOUR PERSONAL ARCHIVE</p><h2 id="history-title">HISTORY</h2></div><button class="icon-action close-history" id="history-close" type="button" aria-label="Close history"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <div class="history-tabs" role="tablist" aria-label="History type"><button class="history-tab active" id="tab-watched" type="button" role="tab" aria-selected="true" aria-controls="history-items" data-tab="watched">Watched</button><button class="history-tab" id="tab-searches" type="button" role="tab" aria-selected="false" aria-controls="history-items" data-tab="searches">Searches</button></div>
+      <div class="history-items" id="history-items" role="tabpanel" aria-labelledby="tab-watched"></div>
+      <div class="history-footer"><p class="history-note">Stored only in this browser.</p><button class="pill-button danger-button" id="clear-history" type="button"><span>Clear all</span><span class="pill-arrow">×</span></button></div>
+    </section>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
